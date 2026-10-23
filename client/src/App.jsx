@@ -4,7 +4,8 @@ import {
   WandSparkles, UserRound, BriefcaseBusiness, GraduationCap, Code2,
   Target, CheckCircle, AlertCircle, Upload, Check, Copy, Briefcase,
   RefreshCw, X, FileUp, Palette, AlignLeft, AlignCenter, AlignRight,
-  Type, SlidersHorizontal, Award, Languages, Layers
+  Type, SlidersHorizontal, Award, Languages, Layers, Camera, Image,
+  FileDown, CheckSquare, ShieldCheck, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
@@ -21,11 +22,16 @@ const emptyResume = () => ({
   education: [{ school: '', degree: '', year: '' }],
   projects: [{ name: '', tech: '', description: '' }],
   experience: [{ company: '', role: '', period: '', description: '' }],
-  additionalInfo: 'Languages: English  •  Certifications: Full Stack Web Development',
+  certifications: [{ name: '', issuer: '', year: '' }],
+  languages: [{ name: '', level: 'Fluent' }],
+  additionalInfo: 'Certifications: Full Stack Web Development  •  Languages: English',
+  photoUrl: '',
+  photoShape: 'circle',   // 'circle' | 'rounded' | 'square' | 'none'
   template: 'modern',     // 'modern' | 'classic' | 'sidebar' | 'minimal' | 'creative'
-  align: 'left',          // 'left' | 'center'
+  align: 'left',          // 'left' | 'center' | 'right'
   accentColor: '#4f46e5', // indigo default
   fontFamily: 'sans',     // 'sans' | 'serif' | 'mono'
+  fontSize: 'normal',     // 'compact' | 'normal' | 'large'
   spacing: 'normal'       // 'compact' | 'normal' | 'spacious'
 });
 
@@ -70,11 +76,22 @@ const ramkumarSample = () => ({
       year: '2021–2023'
     }
   ],
-  additionalInfo: 'Languages: Tamil, English  •  Certifications: Learnathon-2024 (complete 8 courses), CCICS (IEEE conference paper)',
+  certifications: [
+    { name: 'Learnathon-2024 (8 Technical Courses Completed)', issuer: 'ICT Academy', year: '2024' },
+    { name: 'CCICS IEEE International Conference Research Paper', issuer: 'IEEE', year: '2025' }
+  ],
+  languages: [
+    { name: 'Tamil', level: 'Native / Bilingual' },
+    { name: 'English', level: 'Professional Working' }
+  ],
+  additionalInfo: 'Certifications: Learnathon-2024, CCICS IEEE  •  Languages: Tamil, English',
+  photoUrl: '',
+  photoShape: 'circle',
   template: 'modern',
   align: 'left',
   accentColor: '#4f46e5',
   fontFamily: 'sans',
+  fontSize: 'normal',
   spacing: 'normal'
 });
 
@@ -89,9 +106,20 @@ const TEMPLATES = [
 const ACCENT_COLORS = [
   { name: 'Indigo', value: '#4f46e5', bg: 'bg-indigo-600' },
   { name: 'Emerald', value: '#059669', bg: 'bg-emerald-600' },
-  { name: 'Navy', value: '#0284c7', bg: 'bg-sky-600' },
+  { name: 'Sky Navy', value: '#0284c7', bg: 'bg-sky-600' },
   { name: 'Slate', value: '#334155', bg: 'bg-slate-700' },
-  { name: 'Ruby', value: '#dc2626', bg: 'bg-rose-600' }
+  { name: 'Ruby', value: '#dc2626', bg: 'bg-rose-600' },
+  { name: 'Amber Gold', value: '#d97706', bg: 'bg-amber-600' },
+  { name: 'Violet', value: '#7c3aed', bg: 'bg-violet-600' },
+  { name: 'Teal', value: '#0d9488', bg: 'bg-teal-600' }
+];
+
+const LANGUAGE_LEVELS = [
+  'Native / Bilingual',
+  'Fluent / Full Professional',
+  'Professional Working',
+  'Intermediate',
+  'Elementary / Basic'
 ];
 
 const SAMPLE_JOBS = [
@@ -286,6 +314,248 @@ function SectionTitle({ icon: Icon, title, children }) {
 }
 
 // -------------------------------------------------------------
+// FLOWCV ATS TOOLS & SCORING HELPERS
+// -------------------------------------------------------------
+function generateAtsPlainText(data) {
+  const lines = [];
+  if (data.fullName) lines.push(data.fullName.toUpperCase());
+  if (data.role) lines.push(data.role);
+
+  const contacts = [data.email, data.phone, data.location, data.website].filter(Boolean);
+  if (contacts.length) lines.push(contacts.join(' | '));
+  lines.push('------------------------------------------------------------');
+
+  if (data.summary) {
+    lines.push('\nPROFESSIONAL SUMMARY');
+    lines.push(data.summary);
+  }
+
+  if (data.skills) {
+    lines.push('\nTECHNICAL SKILLS');
+    lines.push(data.skills);
+  }
+
+  const validExp = (data.experience || []).filter(e => e.company || e.role || e.description);
+  if (validExp.length) {
+    lines.push('\nWORK EXPERIENCE');
+    validExp.forEach(e => {
+      lines.push(`${e.role || 'Role'} - ${e.company || 'Company'} (${e.period || ''})`);
+      if (e.description) lines.push(e.description);
+      lines.push('');
+    });
+  }
+
+  const validProj = (data.projects || []).filter(p => p.name || p.description);
+  if (validProj.length) {
+    lines.push('\nFEATURED PROJECTS');
+    validProj.forEach(p => {
+      lines.push(`${p.name} ${p.tech ? `[${p.tech}]` : ''}`);
+      if (p.description) lines.push(p.description);
+      lines.push('');
+    });
+  }
+
+  const validEdu = (data.education || []).filter(e => e.school || e.degree);
+  if (validEdu.length) {
+    lines.push('\nEDUCATION');
+    validEdu.forEach(e => {
+      lines.push(`${e.degree} - ${e.school} (${e.year})`);
+    });
+  }
+
+  const validCerts = (data.certifications || []).filter(c => c.name);
+  if (validCerts.length) {
+    lines.push('\nCERTIFICATIONS & LICENSES');
+    validCerts.forEach(c => {
+      lines.push(`• ${c.name}${c.issuer ? ` — ${c.issuer}` : ''}${c.year ? ` (${c.year})` : ''}`);
+    });
+  }
+
+  const validLangs = (data.languages || []).filter(l => l.name);
+  if (validLangs.length) {
+    lines.push('\nLANGUAGES');
+    validLangs.forEach(l => {
+      lines.push(`• ${l.name}${l.level ? ` (${l.level})` : ''}`);
+    });
+  }
+
+  if (data.additionalInfo) {
+    lines.push('\nADDITIONAL INFORMATION');
+    lines.push(data.additionalInfo);
+  }
+
+  return lines.join('\n');
+}
+
+function calculateResumeHealth(data) {
+  const checks = [];
+
+  // 1. Contact info
+  const hasName = Boolean(data.fullName?.trim());
+  const hasEmail = Boolean(data.email?.trim());
+  const hasPhone = Boolean(data.phone?.trim());
+  const hasLocation = Boolean(data.location?.trim());
+  const contactCount = [hasName, hasEmail, hasPhone, hasLocation].filter(Boolean).length;
+  checks.push({
+    id: 'contact',
+    label: 'Contact Information',
+    desc: contactCount >= 3 ? 'Full name, email, and phone ready' : 'Add name, email, phone number, and location',
+    status: contactCount >= 3 ? 'pass' : 'warn',
+    points: contactCount >= 4 ? 15 : contactCount >= 3 ? 12 : contactCount * 3
+  });
+
+  // 2. Summary
+  const summaryWords = (data.summary || '').trim().split(/\s+/).filter(Boolean).length;
+  checks.push({
+    id: 'summary',
+    label: 'Professional Summary',
+    desc: summaryWords >= 25 ? `${summaryWords} words (optimal length)` : 'Aim for 25–60 words highlighting core strengths',
+    status: summaryWords >= 25 ? 'pass' : 'warn',
+    points: summaryWords >= 25 ? 15 : summaryWords > 10 ? 8 : 0
+  });
+
+  // 3. Technical Skills
+  const skillCount = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean).length;
+  checks.push({
+    id: 'skills',
+    label: 'Core Skills Keywords',
+    desc: skillCount >= 6 ? `${skillCount} skills identified` : 'Include 6+ specific tech stack keywords for ATS filters',
+    status: skillCount >= 6 ? 'pass' : 'warn',
+    points: skillCount >= 6 ? 20 : skillCount >= 3 ? 12 : skillCount > 0 ? 6 : 0
+  });
+
+  // 4. Experience / Internships
+  const validExp = (data.experience || []).filter(e => e.company || e.role || e.description);
+  const hasGoodBullets = validExp.some(e => (e.description || '').length > 30);
+  checks.push({
+    id: 'experience',
+    label: 'Work Experience / Internships',
+    desc: validExp.length > 0 && hasGoodBullets ? `${validExp.length} position(s) with bullet points` : 'Add positions with measurable achievements and actions',
+    status: validExp.length > 0 && hasGoodBullets ? 'pass' : 'warn',
+    points: validExp.length > 0 && hasGoodBullets ? 20 : validExp.length > 0 ? 10 : 0
+  });
+
+  // 5. Featured Projects
+  const validProj = (data.projects || []).filter(p => p.name || p.description);
+  const hasTech = validProj.some(p => p.tech);
+  checks.push({
+    id: 'projects',
+    label: 'Projects & Tech Stacks',
+    desc: validProj.length >= 2 ? `${validProj.length} projects documented` : 'List 2+ real-world projects with technologies used',
+    status: validProj.length >= 2 && hasTech ? 'pass' : validProj.length >= 1 ? 'warn' : 'warn',
+    points: validProj.length >= 2 && hasTech ? 15 : validProj.length >= 1 ? 9 : 0
+  });
+
+  // 6. Education
+  const validEdu = (data.education || []).filter(e => e.school || e.degree);
+  checks.push({
+    id: 'education',
+    label: 'Education & Degree',
+    desc: validEdu.length > 0 ? `${validEdu.length} entry verified` : 'Add degree, institution, and graduation year',
+    status: validEdu.length > 0 ? 'pass' : 'warn',
+    points: validEdu.length > 0 ? 10 : 0
+  });
+
+  // 7. Certifications & Languages
+  const validCerts = (data.certifications || []).filter(c => c.name);
+  const validLangs = (data.languages || []).filter(l => l.name);
+  const hasCredentials = validCerts.length > 0 || validLangs.length > 0 || Boolean(data.additionalInfo?.trim());
+  checks.push({
+    id: 'credentials',
+    label: 'Certifications & Languages',
+    desc: hasCredentials ? `${validCerts.length} cert(s), ${validLangs.length} language(s)` : 'Add industry certifications or language proficiencies',
+    status: hasCredentials ? 'pass' : 'warn',
+    points: hasCredentials ? 5 : 0
+  });
+
+  const totalScore = Math.min(100, checks.reduce((sum, c) => sum + c.points, 0));
+  const rating = totalScore >= 85 ? 'Excellent (ATS Ready)' : totalScore >= 70 ? 'Good (Strong Foundation)' : 'Needs Enhancement';
+  const color = totalScore >= 85 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : totalScore >= 70 ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-rose-700 bg-rose-50 border-rose-200';
+  const progressBg = totalScore >= 85 ? 'bg-emerald-500' : totalScore >= 70 ? 'bg-amber-500' : 'bg-rose-500';
+
+  return { totalScore, rating, color, progressBg, checks };
+}
+
+function AtsHealthWidget({ data, onFixSection }) {
+  const [expanded, setExpanded] = useState(false);
+  const health = calculateResumeHealth(data);
+
+  return (
+    <div className="no-print mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-900">ATS Content Health & Completeness</span>
+              <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${health.color}`}>
+                {health.totalScore}% · {health.rating}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              FlowCV-style real-time analysis for contact, summary, skills, and experience
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setExpanded(prev => !prev)}
+          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          {expanded ? 'Hide Checklist' : 'Review Checklist (7 Checks)'}
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full transition-all duration-500 ${health.progressBg}`}
+          style={{ width: `${health.totalScore}%` }}
+        />
+      </div>
+
+      {/* Expandable 7-point Checklist */}
+      {expanded && (
+        <div className="mt-4 border-t border-slate-100 pt-3 space-y-2">
+          {health.checks.map(chk => (
+            <div
+              key={chk.id}
+              className={`flex items-center justify-between rounded-xl p-2.5 text-xs transition ${
+                chk.status === 'pass' ? 'bg-emerald-50/60 border border-emerald-100' : 'bg-amber-50/60 border border-amber-100'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                {chk.status === 'pass' ? (
+                  <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                )}
+                <div>
+                  <strong className={chk.status === 'pass' ? 'text-emerald-950 font-semibold' : 'text-amber-950 font-semibold'}>
+                    {chk.label}
+                  </strong>
+                  <p className="text-[11px] text-slate-600 mt-0.5">{chk.desc}</p>
+                </div>
+              </div>
+
+              <span className={`shrink-0 font-bold px-2 py-0.5 rounded text-[11px] ${
+                chk.status === 'pass' ? 'text-emerald-700 bg-emerald-100' : 'text-amber-800 bg-amber-100'
+              }`}>
+                +{chk.points} pts
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
 // DYNAMIC 5-TEMPLATE RESUME PREVIEW
 // -------------------------------------------------------------
 function ResumePreview({ data }) {
@@ -293,10 +563,21 @@ function ResumePreview({ data }) {
   const align = data.align || 'left';
   const accent = data.accentColor || '#4f46e5';
   const fontClass = data.fontFamily === 'serif' ? 'font-serif' : data.fontFamily === 'mono' ? 'font-mono' : 'font-sans';
-  const spacingClass = data.spacing === 'compact' ? 'space-y-3.5' : data.spacing === 'spacious' ? 'space-y-6' : 'space-y-5';
+  const spacingClass = data.spacing === 'compact' ? 'space-y-3' : data.spacing === 'spacious' ? 'space-y-6' : 'space-y-4.5';
+
+  // Font scale (FlowCV sizing)
+  const fontSize = data.fontSize || 'normal';
+  const fontScaleClass = fontSize === 'compact' ? 'text-[12.5px] leading-snug' : fontSize === 'large' ? 'text-[15px] leading-relaxed' : 'text-sm leading-normal';
+
+  // Photo configuration
+  const photoShape = data.photoShape || 'circle';
+  const photoShapeClass = photoShape === 'square' ? 'rounded-none' : photoShape === 'rounded' ? 'rounded-2xl' : 'rounded-full';
+  const showPhoto = Boolean(data.photoUrl && photoShape !== 'none');
 
   const skills = (data.skills || '').split(',').map(s => s.trim()).filter(Boolean);
   const contacts = [data.email, data.phone, data.location, data.website].filter(Boolean);
+  const certifications = (data.certifications || []).filter(c => c.name);
+  const languages = (data.languages || []).filter(l => l.name);
 
   const alignClass = align === 'center' ? 'text-center items-center justify-center' : align === 'right' ? 'text-right items-end justify-end' : 'text-left items-start justify-start';
 
@@ -305,21 +586,31 @@ function ResumePreview({ data }) {
   // -----------------------------------------------------------
   if (template === 'modern') {
     return (
-      <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white p-8 sm:p-10 shadow-xl ${fontClass} ${spacingClass}`}>
-        <header className={`border-b-2 pb-5 ${alignClass}`} style={{ borderColor: accent }}>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{data.fullName || 'Your Name'}</h1>
-          <p className="mt-1 text-lg font-semibold" style={{ color: accent }}>{data.role || 'Full Stack Developer'}</p>
-          {contacts.length > 0 && (
-            <p className="mt-2.5 text-xs text-slate-600 leading-relaxed break-words">
-              {contacts.join('  •  ')}
-            </p>
+      <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white p-8 sm:p-10 shadow-xl ${fontClass} ${fontScaleClass} ${spacingClass}`}>
+        <header className={`border-b-2 pb-5 flex flex-wrap items-center gap-4 ${align === 'center' ? 'flex-col text-center justify-center' : align === 'right' ? 'flex-row-reverse text-right justify-between' : 'justify-between text-left'}`} style={{ borderColor: accent }}>
+          <div className="flex-1 min-w-[240px]">
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{data.fullName || 'Your Name'}</h1>
+            <p className="mt-1 text-lg font-semibold" style={{ color: accent }}>{data.role || 'Full Stack Developer'}</p>
+            {contacts.length > 0 && (
+              <p className="mt-2.5 text-xs text-slate-600 leading-relaxed break-words">
+                {contacts.join('  •  ')}
+              </p>
+            )}
+          </div>
+          {showPhoto && (
+            <img
+              src={data.photoUrl}
+              alt={data.fullName || 'Profile'}
+              className={`h-20 w-20 object-cover border-2 shadow-sm shrink-0 ${photoShapeClass}`}
+              style={{ borderColor: accent }}
+            />
           )}
         </header>
 
         {data.summary && (
           <section>
             <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Professional Summary</h2>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{data.summary}</p>
+            <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{data.summary}</p>
           </section>
         )}
 
@@ -381,6 +672,38 @@ function ResumePreview({ data }) {
           </section>
         )}
 
+        {certifications.length > 0 && (
+          <section>
+            <h2 className="mb-2.5 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Certifications & Licenses</h2>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {certifications.map((c, i) => (
+                <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <strong className="text-slate-900 font-semibold">{c.name}</strong>
+                    {c.year && <span className="text-[11px] font-medium text-slate-500 shrink-0">{c.year}</span>}
+                  </div>
+                  {c.issuer && <p className="text-[11px] text-slate-600 mt-0.5">{c.issuer}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {languages.length > 0 && (
+          <section>
+            <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Languages</h2>
+            <div className="flex flex-wrap gap-2">
+              {languages.map((l, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-800">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+                  <strong>{l.name}</strong>
+                  {l.level && <span className="text-slate-500">({l.level})</span>}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
         {data.additionalInfo && (
           <section className="border-t pt-3">
             <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Additional Information</h2>
@@ -396,14 +719,23 @@ function ResumePreview({ data }) {
   // -----------------------------------------------------------
   if (template === 'classic') {
     return (
-      <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white p-8 sm:p-10 shadow-xl ${fontClass} ${spacingClass}`}>
-        <header className={`border-b-2 border-slate-900 pb-4 ${alignClass}`}>
-          <h1 className="text-3xl font-bold uppercase tracking-wider text-slate-950">{data.fullName || 'Your Name'}</h1>
-          <p className="mt-1 text-base font-medium tracking-wide text-slate-700">{data.role || 'Full Stack Developer'}</p>
-          {contacts.length > 0 && (
-            <p className="mt-2 text-xs text-slate-600 tracking-normal break-words">
-              {contacts.join(' | ')}
-            </p>
+      <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white p-8 sm:p-10 shadow-xl ${fontClass} ${fontScaleClass} ${spacingClass}`}>
+        <header className={`border-b-2 border-slate-900 pb-4 flex flex-wrap items-center gap-4 ${align === 'center' ? 'flex-col text-center justify-center' : align === 'right' ? 'flex-row-reverse text-right justify-between' : 'justify-between text-left'}`}>
+          <div className="flex-1 min-w-[240px]">
+            <h1 className="text-3xl font-bold uppercase tracking-wider text-slate-950">{data.fullName || 'Your Name'}</h1>
+            <p className="mt-1 text-base font-medium tracking-wide text-slate-700">{data.role || 'Full Stack Developer'}</p>
+            {contacts.length > 0 && (
+              <p className="mt-2 text-xs text-slate-600 tracking-normal break-words">
+                {contacts.join(' | ')}
+              </p>
+            )}
+          </div>
+          {showPhoto && (
+            <img
+              src={data.photoUrl}
+              alt={data.fullName || 'Profile'}
+              className={`h-20 w-20 object-cover border border-slate-400 shadow-2xs shrink-0 ${photoShapeClass}`}
+            />
           )}
         </header>
 
@@ -466,6 +798,29 @@ function ResumePreview({ data }) {
           </section>
         )}
 
+        {certifications.length > 0 && (
+          <section>
+            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Certifications & Licenses</h2>
+            <div className="mt-2 space-y-1.5 text-xs text-slate-800">
+              {certifications.map((c, i) => (
+                <div key={i} className="flex justify-between items-baseline">
+                  <span>• <strong>{c.name}</strong>{c.issuer ? ` (${c.issuer})` : ''}</span>
+                  {c.year && <span className="text-slate-600">{c.year}</span>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {languages.length > 0 && (
+          <section>
+            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Languages</h2>
+            <p className="mt-2 text-xs text-slate-800">
+              {languages.map(l => `${l.name}${l.level ? ` (${l.level})` : ''}`).join(' • ')}
+            </p>
+          </section>
+        )}
+
         {data.additionalInfo && (
           <section>
             <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Additional Information</h2>
@@ -481,10 +836,22 @@ function ResumePreview({ data }) {
   // -----------------------------------------------------------
   if (template === 'sidebar') {
     return (
-      <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white shadow-xl ${fontClass} flex flex-col md:flex-row overflow-hidden`}>
+      <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white shadow-xl ${fontClass} ${fontScaleClass} flex flex-col md:flex-row overflow-hidden`}>
         {/* Left Sidebar */}
-        <aside className="w-full md:w-[32%] bg-slate-50 border-r border-slate-200 p-6 sm:p-7 flex flex-col justify-between">
-          <div className="space-y-6">
+        <aside className="w-full md:w-[34%] bg-slate-50 border-r border-slate-200 p-6 sm:p-7 flex flex-col justify-between">
+          <div className="space-y-5">
+            {/* Prominent Profile Photo at Top of Sidebar */}
+            {showPhoto && (
+              <div className="flex justify-center mb-3">
+                <img
+                  src={data.photoUrl}
+                  alt={data.fullName || 'Profile'}
+                  className={`h-24 w-24 object-cover border-2 shadow-md ${photoShapeClass}`}
+                  style={{ borderColor: accent }}
+                />
+              </div>
+            )}
+
             <div className={alignClass}>
               <h1 className="text-2xl font-bold text-slate-900">{data.fullName || 'Your Name'}</h1>
               <p className="mt-1 text-sm font-semibold" style={{ color: accent }}>{data.role || 'Full Stack Developer'}</p>
@@ -515,6 +882,21 @@ function ResumePreview({ data }) {
               </div>
             )}
 
+            {/* Languages in sidebar */}
+            {languages.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Languages</h3>
+                <div className="space-y-1 text-xs">
+                  {languages.map((l, i) => (
+                    <div key={i} className="flex justify-between items-center text-[11px]">
+                      <span className="font-semibold text-slate-800">{l.name}</span>
+                      <span className="text-slate-500 text-[10px]">{l.level}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Education in sidebar */}
             {data.education?.some(x => x.school || x.degree) && (
               <div>
@@ -531,6 +913,21 @@ function ResumePreview({ data }) {
               </div>
             )}
 
+            {/* Certifications in sidebar */}
+            {certifications.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Certifications</h3>
+                <div className="space-y-1.5 text-xs">
+                  {certifications.map((c, i) => (
+                    <div key={i} className="rounded border border-slate-200 bg-white p-1.5 text-[11px]">
+                      <strong className="text-slate-800 block truncate">{c.name}</strong>
+                      <span className="text-slate-500 text-[10px]">{c.issuer} {c.year ? `· ${c.year}` : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {data.additionalInfo && (
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Info & Certs</h3>
@@ -541,7 +938,7 @@ function ResumePreview({ data }) {
         </aside>
 
         {/* Right Main Body */}
-        <main className="w-full md:w-[68%] p-6 sm:p-8 space-y-5">
+        <main className={`w-full md:w-[66%] p-6 sm:p-8 ${spacingClass}`}>
           {data.summary && (
             <section>
               <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>Professional Profile</h2>
@@ -592,16 +989,25 @@ function ResumePreview({ data }) {
   // -----------------------------------------------------------
   if (template === 'minimal') {
     return (
-      <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white p-8 sm:p-11 shadow-xl border-t-8 ${fontClass} ${spacingClass}`} style={{ borderColor: accent }}>
-        <header className={`pb-4 border-b border-slate-100 ${alignClass}`}>
-          <h1 className="text-3xl font-light tracking-wide text-slate-900 uppercase">
-            <span className="font-bold">{data.fullName?.split(' ')[0]}</span> {data.fullName?.split(' ').slice(1).join(' ')}
-          </h1>
-          <p className="mt-1 text-sm font-medium tracking-widest uppercase text-slate-500">{data.role || 'Full Stack Developer'}</p>
-          {contacts.length > 0 && (
-            <p className="mt-2 text-xs text-slate-400 break-words">
-              {contacts.join(' / ')}
-            </p>
+      <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white p-8 sm:p-11 shadow-xl border-t-8 ${fontClass} ${fontScaleClass} ${spacingClass}`} style={{ borderColor: accent }}>
+        <header className={`pb-4 border-b border-slate-100 flex flex-wrap items-center gap-4 ${align === 'center' ? 'flex-col text-center justify-center' : align === 'right' ? 'flex-row-reverse text-right justify-between' : 'justify-between text-left'}`}>
+          <div className="flex-1 min-w-[240px]">
+            <h1 className="text-3xl font-light tracking-wide text-slate-900 uppercase">
+              <span className="font-bold">{data.fullName?.split(' ')[0]}</span> {data.fullName?.split(' ').slice(1).join(' ')}
+            </h1>
+            <p className="mt-1 text-sm font-medium tracking-widest uppercase text-slate-500">{data.role || 'Full Stack Developer'}</p>
+            {contacts.length > 0 && (
+              <p className="mt-2 text-xs text-slate-400 break-words">
+                {contacts.join(' / ')}
+              </p>
+            )}
+          </div>
+          {showPhoto && (
+            <img
+              src={data.photoUrl}
+              alt={data.fullName || 'Profile'}
+              className={`h-20 w-20 object-cover border border-slate-200 shrink-0 ${photoShapeClass}`}
+            />
           )}
         </header>
 
@@ -673,6 +1079,29 @@ function ResumePreview({ data }) {
           </section>
         )}
 
+        {certifications.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Certifications</h2>
+            <div className="mt-2 space-y-1.5 text-xs">
+              {certifications.map((c, i) => (
+                <div key={i} className="flex justify-between items-baseline text-slate-700">
+                  <span><strong>{c.name}</strong> — {c.issuer}</span>
+                  <span className="text-slate-400">{c.year}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {languages.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Languages</h2>
+            <p className="mt-1.5 text-xs text-slate-700">
+              {languages.map(l => `${l.name} (${l.level})`).join('  /  ')}
+            </p>
+          </section>
+        )}
+
         {data.additionalInfo && (
           <section className="text-xs text-slate-500 pt-2 border-t">
             {data.additionalInfo}
@@ -686,17 +1115,26 @@ function ResumePreview({ data }) {
   // TEMPLATE 5: CREATIVE SLATE BANNER (Bold colored banner header)
   // -----------------------------------------------------------
   return (
-    <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white shadow-xl ${fontClass} overflow-hidden`}>
+    <article id="resume-print" className={`print-area mx-auto min-h-[960px] w-full max-w-[800px] bg-white shadow-xl ${fontClass} ${fontScaleClass} overflow-hidden`}>
       {/* Top Banner */}
-      <header className={`p-8 sm:p-10 text-white ${alignClass}`} style={{ backgroundColor: accent }}>
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">{data.fullName || 'Your Name'}</h1>
-        <p className="mt-1 text-lg font-medium opacity-90">{data.role || 'Full Stack Developer'}</p>
-        {contacts.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs opacity-85 break-words">
-            {contacts.map((c, i) => (
-              <span key={i}>• {c}</span>
-            ))}
-          </div>
+      <header className={`p-8 sm:p-10 text-white flex flex-wrap items-center gap-6 ${align === 'center' ? 'flex-col text-center justify-center' : align === 'right' ? 'flex-row-reverse text-right justify-between' : 'justify-between text-left'}`} style={{ backgroundColor: accent }}>
+        <div className="flex-1 min-w-[240px]">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">{data.fullName || 'Your Name'}</h1>
+          <p className="mt-1 text-lg font-medium opacity-90">{data.role || 'Full Stack Developer'}</p>
+          {contacts.length > 0 && (
+            <div className={`mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs opacity-85 break-words ${align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : ''}`}>
+              {contacts.map((c, i) => (
+                <span key={i}>• {c}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        {showPhoto && (
+          <img
+            src={data.photoUrl}
+            alt={data.fullName || 'Profile'}
+            className={`h-24 w-24 object-cover border-4 border-white/60 shadow-lg shrink-0 ${photoShapeClass}`}
+          />
         )}
       </header>
 
@@ -784,6 +1222,42 @@ function ResumePreview({ data }) {
           </section>
         )}
 
+        {certifications.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Certifications</h2>
+            </div>
+            <div className="pl-3 grid gap-2 sm:grid-cols-2">
+              {certifications.map((c, i) => (
+                <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs">
+                  <div className="flex justify-between items-baseline">
+                    <strong className="text-slate-900">{c.name}</strong>
+                    {c.year && <span className="text-[11px] font-medium text-slate-500">{c.year}</span>}
+                  </div>
+                  {c.issuer && <p className="text-[11px] text-slate-600">{c.issuer}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {languages.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Languages</h2>
+            </div>
+            <div className="pl-3 flex flex-wrap gap-2">
+              {languages.map((l, i) => (
+                <span key={i} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-800">
+                  {l.name} {l.level && <span className="text-slate-500">({l.level})</span>}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
         {data.additionalInfo && (
           <section className="pl-3 pt-2 text-xs text-slate-600">
             <strong>Certifications & Details:</strong> {data.additionalInfo}
@@ -824,6 +1298,7 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
+  const [showPageGuide, setShowPageGuide] = useState(true);
 
   useEffect(() => {
     if (session) localStorage.setItem('resume-session', JSON.stringify(session));
@@ -938,6 +1413,23 @@ export default function App() {
     setUploading(true);
     setNotice(`Reading and parsing "${file.name}"…`);
     try {
+      if (file.name.endsWith('.json')) {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        setData(prev => ({ ...emptyResume(), ...parsed }));
+        setResumeId(null);
+        const cleanTitle = (parsed.fullName ? `${parsed.fullName}'s Resume` : file.name.replace(/\.[^/.]+$/, '')) || 'Uploaded Resume';
+        setTitle(cleanTitle);
+        setImportModalOpen(false);
+        setImportText('');
+        setTailorResult(null);
+        setTab('edit');
+        setNotice(`Successfully restored JSON backup "${file.name}"!`);
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -968,6 +1460,34 @@ export default function App() {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  function exportJson() {
+    const exportData = {
+      ...data,
+      meta: {
+        exportedAt: new Date().toISOString(),
+        tool: 'ResumeCraft AI (FlowCV Compatible)'
+      }
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(data.fullName || 'resume').toLowerCase().replace(/[^a-z0-9]/g, '_')}_resume.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setNotice('💾 Complete JSON backup downloaded! You can re-import this anytime.');
+  }
+
+  function copyPlainText() {
+    const text = generateAtsPlainText(data);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setNotice('📋 ATS Plain-Text resume copied to clipboard! Ready to paste into job portals.');
+    } else {
+      setNotice('Clipboard access unavailable.');
     }
   }
 
@@ -1156,13 +1676,29 @@ export default function App() {
               onClick={() => setImportModalOpen(true)}
               className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
             >
-              <Upload size={17}/> Import Options
+              <Upload size={17}/> Import
             </button>
             <button
               onClick={newResume}
-              className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+              className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
             >
               <Plus size={17}/> New Blank
+            </button>
+            <button
+              type="button"
+              onClick={copyPlainText}
+              className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm transition"
+              title="Copy ATS-friendly plain text to clipboard for job application portals"
+            >
+              <Copy size={16}/> Copy Text
+            </button>
+            <button
+              type="button"
+              onClick={exportJson}
+              className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm transition"
+              title="Export complete resume data as a JSON file backup"
+            >
+              <FileDown size={16}/> Export JSON
             </button>
             <button
               disabled={busy}
@@ -1239,20 +1775,50 @@ export default function App() {
         </div>
 
         {/* -------------------------------------------------------------
-            CLIENT CUSTOMIZATION CONTROLS BAR (Formats, Align, Color, Font)
+            FLOWCV-INSPIRED RESUME STYLING & CONTROLS BAR
             ------------------------------------------------------------- */}
         <div className="no-print mb-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={18} className="text-indigo-600"/>
-              <h3 className="font-bold text-slate-900 text-sm sm:text-base">Layout, Alignment & 5 Simple Formats</h3>
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                Design & Layout Controls <span className="rounded bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">FlowCV Mode</span>
+              </h3>
             </div>
-            <span className="text-xs text-slate-500">Live preview updates instantly · Print ready</span>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  update('spacing', 'compact');
+                  update('fontSize', 'compact');
+                  setNotice('✨ Fit to 1 Page activated! Spacing and font sizes optimized to fit within a single standard page.');
+                }}
+                className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 px-3.5 py-1.5 text-xs font-bold text-amber-900 shadow-2xs hover:from-amber-100 hover:to-orange-100 transition"
+                title="Automatically adjusts font size and vertical spacing to compress content into 1 standard A4 page"
+              >
+                <Sparkles size={14} className="text-amber-600 animate-pulse" /> ✨ Fit to 1 Page
+              </button>
+
+              <span className="text-xs text-slate-300">|</span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  update('spacing', 'normal');
+                  update('fontSize', 'normal');
+                  setNotice('Restored normal spacing and font size.');
+                }}
+                className="text-xs text-slate-500 hover:text-slate-800 underline decoration-slate-300"
+              >
+                Reset layout
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {/* 1. Format / Template Selector */}
-            <div className="lg:col-span-2">
+            <div className="xl:col-span-2">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
                 <Layers size={14} className="text-indigo-600"/> Select Format (5 Formats)
               </label>
@@ -1263,7 +1829,7 @@ export default function App() {
                     onClick={() => update('template', t.id)}
                     className={`rounded-xl border p-2.5 text-left text-xs font-semibold transition ${
                       (data.template || 'modern') === t.id
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20 shadow-2xs'
                         : 'border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
@@ -1274,73 +1840,124 @@ export default function App() {
               </div>
             </div>
 
-            {/* 2. Header Alignment Selector */}
+            {/* 2. Text Alignment & Font Sizing */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-                <AlignLeft size={14} className="text-indigo-600"/> Text & Header Alignment
+                <AlignLeft size={14} className="text-indigo-600"/> Alignment & Font Size
               </label>
-              <div className="flex gap-2">
+              
+              {/* Alignment */}
+              <div className="flex gap-1.5 mb-2.5">
                 <button
                   type="button"
                   onClick={() => update('align', 'left')}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2 text-xs font-semibold transition ${
+                  className={`flex flex-1 items-center justify-center gap-1 rounded-lg border p-1.5 text-xs font-semibold transition ${
                     (data.align || 'left') === 'left'
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20'
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-1 ring-indigo-400'
                       : 'border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100'
                   }`}
+                  title="Left align header"
                 >
-                  <AlignLeft size={15}/> Left
+                  <AlignLeft size={14}/> Left
                 </button>
                 <button
                   type="button"
                   onClick={() => update('align', 'center')}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2 text-xs font-semibold transition ${
+                  className={`flex flex-1 items-center justify-center gap-1 rounded-lg border p-1.5 text-xs font-semibold transition ${
                     data.align === 'center'
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20'
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-1 ring-indigo-400'
                       : 'border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100'
                   }`}
+                  title="Center align header"
                 >
-                  <AlignCenter size={15}/> Center
+                  <AlignCenter size={14}/> Center
                 </button>
                 <button
                   type="button"
                   onClick={() => update('align', 'right')}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2 text-xs font-semibold transition ${
+                  className={`flex flex-1 items-center justify-center gap-1 rounded-lg border p-1.5 text-xs font-semibold transition ${
                     data.align === 'right'
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-2 ring-indigo-500/20'
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-1 ring-indigo-400'
                       : 'border-slate-200 bg-slate-50/60 text-slate-700 hover:bg-slate-100'
                   }`}
+                  title="Right align header"
                 >
-                  <AlignRight size={15}/> Right
+                  <AlignRight size={14}/> Right
                 </button>
+              </div>
+
+              {/* Font Size Selector (Compact / Normal / Large) */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-slate-500">Size:</span>
+                {['compact', 'normal', 'large'].map(sz => (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() => update('fontSize', sz)}
+                    className={`flex-1 rounded-lg border py-1 text-center text-xs font-semibold capitalize transition ${
+                      (data.fontSize || 'normal') === sz
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-900 font-bold ring-1 ring-indigo-400'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {sz}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* 3. Theme Color & Font */}
+            {/* 3. Theme Color & Typography */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-                <Palette size={14} className="text-indigo-600"/> Accent Color & Font
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><Palette size={14} className="text-indigo-600"/> Accent & Font</span>
+                <span className="text-[11px] font-mono text-slate-500 uppercase">{data.accentColor || '#4f46e5'}</span>
               </label>
-              <div className="flex items-center gap-2">
+
+              {/* Color Swatches + Native Hex Color Picker */}
+              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
                 {ACCENT_COLORS.map(c => (
                   <button
                     key={c.value}
                     type="button"
                     onClick={() => update('accentColor', c.value)}
-                    className={`h-7 w-7 rounded-full transition-transform ${c.bg} ${
-                      (data.accentColor || '#4f46e5') === c.value ? 'scale-125 ring-2 ring-offset-2 ring-slate-800' : 'hover:scale-110'
+                    className={`h-6 w-6 rounded-full transition-transform ${c.bg} ${
+                      (data.accentColor || '#4f46e5').toLowerCase() === c.value.toLowerCase() ? 'scale-125 ring-2 ring-offset-2 ring-slate-800' : 'hover:scale-110'
                     }`}
                     title={c.name}
                   />
                 ))}
+
+                {/* Custom Color Wheel Input */}
+                <div className="relative flex items-center ml-1" title="Pick any custom color wheel / hex">
+                  <input
+                    type="color"
+                    value={data.accentColor || '#4f46e5'}
+                    onChange={e => update('accentColor', e.target.value)}
+                    className="h-6 w-6 cursor-pointer rounded-full border border-slate-300 p-0 overflow-hidden"
+                  />
+                </div>
+              </div>
+
+              {/* Spacing Density & Font Family */}
+              <div className="grid grid-cols-2 gap-2">
                 <select
                   value={data.fontFamily || 'sans'}
                   onChange={e => update('fontFamily', e.target.value)}
-                  className="ml-auto rounded-xl border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700"
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
                 >
                   <option value="sans">Modern Sans</option>
                   <option value="serif">Classic Serif</option>
                   <option value="mono">Tech Mono</option>
+                </select>
+
+                <select
+                  value={data.spacing || 'normal'}
+                  onChange={e => update('spacing', e.target.value)}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
+                >
+                  <option value="compact">Tight Spacing</option>
+                  <option value="normal">Normal Spacing</option>
+                  <option value="spacious">Spacious Spacing</option>
                 </select>
               </div>
             </div>
@@ -1386,6 +2003,79 @@ export default function App() {
                     <Field label="Resume name (for your dashboard)" value={title} onChange={setTitle} placeholder="Frontend Developer Resume" />
                   </div>
                   <SectionTitle icon={UserRound} title="Personal details"/>
+
+                  {/* FlowCV-Style Profile Photo Uploader */}
+                  <div className="mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                    <div className="relative shrink-0">
+                      {data.photoUrl ? (
+                        <img
+                          src={data.photoUrl}
+                          alt="Avatar"
+                          className={`h-16 w-16 object-cover border-2 border-indigo-200 shadow-sm ${
+                            data.photoShape === 'square' ? 'rounded-none' : data.photoShape === 'rounded' ? 'rounded-xl' : 'rounded-full'
+                          }`}
+                        />
+                      ) : (
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-white text-slate-400">
+                          <UserRound size={26} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-[220px]">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-700">Profile Photo (Optional)</p>
+                        {data.photoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => update('photoUrl', '')}
+                            className="text-[11px] font-semibold text-red-600 hover:underline"
+                          >
+                            Remove Photo
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Appears in modern, sidebar, minimal, and creative templates</p>
+                      
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <label className="cursor-pointer rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition">
+                          Upload Headshot
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = ev => update('photoUrl', ev.target.result);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+
+                        {/* Shape Switcher */}
+                        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-0.5 text-[11px]">
+                          {['circle', 'rounded', 'square', 'none'].map(shape => (
+                            <button
+                              key={shape}
+                              type="button"
+                              onClick={() => update('photoShape', shape)}
+                              className={`rounded px-2 py-0.5 capitalize font-medium transition ${
+                                (data.photoShape || 'circle') === shape
+                                  ? 'bg-indigo-600 text-white font-semibold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              {shape === 'none' ? 'Hidden' : shape}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Full name" value={data.fullName} onChange={v => update('fullName', v)} placeholder="e.g. RAMKUMAR M" />
                     <Field label="Professional title" value={data.role} onChange={v => update('role', v)} placeholder="Full Stack Developer" />
@@ -1499,8 +2189,73 @@ export default function App() {
                   </button>
                 </div>
 
+                {/* FLOWCV MODULAR SECTION: CERTIFICATIONS & LICENSES */}
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={Award} title="Additional Information & Certifications"/>
+                  <SectionTitle icon={Award} title="Certifications & Licenses"/>
+                  {(data.certifications || []).map((x, i) => (
+                    <div key={i} className="mb-3 rounded-xl border border-slate-100 bg-slate-50 p-3.5">
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="sm:col-span-2">
+                          <Field label="Certification name" value={x.name} onChange={v => updateRow('certifications', i, 'name', v)} placeholder="e.g. AWS Certified Solutions Architect" />
+                        </div>
+                        <Field label="Year / Date" value={x.year} onChange={v => updateRow('certifications', i, 'year', v)} placeholder="2024" />
+                      </div>
+                      <div className="mt-2.5">
+                        <Field label="Issuing Organization" value={x.issuer} onChange={v => updateRow('certifications', i, 'issuer', v)} placeholder="Amazon Web Services / Coursera / ICT Academy" />
+                      </div>
+                      <button onClick={() => removeRow('certifications', i)} className="mt-2 text-xs font-semibold text-red-600 hover:text-red-700">
+                        Remove certification
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addRow('certifications', { name: '', issuer: '', year: '' })}
+                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add certification
+                  </button>
+                </div>
+
+                {/* FLOWCV MODULAR SECTION: LANGUAGES & PROFICIENCY */}
+                <div className="rounded-2xl border bg-white p-5 shadow-sm">
+                  <SectionTitle icon={Languages} title="Languages & Proficiency"/>
+                  {(data.languages || []).map((x, i) => (
+                    <div key={i} className="mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3.5">
+                      <div className="flex-1 min-w-[150px]">
+                        <Field label="Language" value={x.name} onChange={v => updateRow('languages', i, 'name', v)} placeholder="e.g. English, Tamil, German" />
+                      </div>
+                      <div className="flex-1 min-w-[180px]">
+                        <label className="block text-sm font-medium text-slate-700">
+                          Proficiency Level
+                          <select
+                            value={x.level || 'Fluent / Full Professional'}
+                            onChange={e => updateRow('languages', i, 'level', e.target.value)}
+                            className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-medium text-slate-800"
+                          >
+                            {LANGUAGE_LEVELS.map(lvl => (
+                              <option key={lvl} value={lvl}>{lvl}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <button
+                        onClick={() => removeRow('languages', i)}
+                        className="mb-2 text-xs font-semibold text-red-600 hover:text-red-700 shrink-0"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addRow('languages', { name: '', level: 'Fluent / Full Professional' })}
+                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add language
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border bg-white p-5 shadow-sm">
+                  <SectionTitle icon={FileText} title="Additional Notes / Custom Section"/>
                   <Field
                     label="Languages, Certifications, Conferences"
                     area
@@ -2004,18 +2759,71 @@ export default function App() {
 
           {/* Right Column: Live A4 Resume Preview */}
           <section className="min-w-0">
-            <div className="no-print mb-3 flex items-center justify-between">
+            {/* FlowCV Live ATS Content Health & Completeness Checklist */}
+            <AtsHealthWidget
+              data={data}
+              onFixSection={() => setTab('edit')}
+            />
+
+            <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-slate-800">Live Resume Preview</p>
-                <p className="text-xs text-slate-500">Format: {TEMPLATES.find(t => t.id === (data.template || 'modern'))?.name} · Align: {data.align || 'left'}</p>
+                <p className="text-xs text-slate-500">
+                  Format: {TEMPLATES.find(t => t.id === (data.template || 'modern'))?.name} · Align: {data.align || 'left'} · Size: {data.fontSize || 'normal'}
+                </p>
               </div>
-              <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                <Eye size={14}/> Live View
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPageGuide(prev => !prev)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    showPageGuide
+                      ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-400'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  title="Toggle visual indicator for standard A4 Page 1 cutoff"
+                >
+                  <FileText size={13}/> A4 Cutoff Guide: {showPageGuide ? 'ON' : 'OFF'}
+                </button>
+                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  <Eye size={14}/> Live View
+                </span>
+              </div>
             </div>
-            <ResumePreview data={data}/>
-            <div className="no-print mt-4 rounded-xl border bg-white p-4 text-xs leading-5 text-slate-500 shadow-sm">
-              💡 <strong>PDF Export Tip:</strong> Click <strong>Download / Print PDF</strong>, then select <strong>Save as PDF</strong> in your browser print dialog. Make sure 'Background graphics' is checked.
+
+            {/* A4 Canvas Container with visual cutoff guideline */}
+            <div className="relative">
+              <ResumePreview data={data}/>
+              {showPageGuide && (
+                <div
+                  className="no-print pointer-events-none absolute left-0 right-0 border-b-2 border-dashed border-rose-500 z-10 flex items-center justify-between px-4"
+                  style={{ top: '1050px' }}
+                >
+                  <span className="rounded bg-rose-600 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-white uppercase shadow">
+                    ✂️ Standard A4 Page 1 Boundary (~1050px)
+                  </span>
+                  <span className="rounded bg-rose-50 px-2.5 py-0.5 text-[10px] font-semibold text-rose-700 border border-rose-200 shadow-2xs">
+                    Content below this prints on Page 2
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="no-print mt-4 rounded-xl border bg-white p-4 text-xs leading-5 text-slate-500 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                💡 <strong>PDF Export Tip:</strong> Click <strong>Download / Print PDF</strong>, then select <strong>Save as PDF</strong> in your browser print dialog. Make sure 'Background graphics' is checked.
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  update('spacing', 'compact');
+                  update('fontSize', 'compact');
+                  setNotice('✨ Fit to 1 Page: spacing and font sizes compressed to fit content onto 1 page!');
+                }}
+                className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition shadow-2xs"
+              >
+                ✨ Fit to 1 Page
+              </button>
             </div>
           </section>
         </div>
