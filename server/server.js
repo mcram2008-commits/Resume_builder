@@ -24,7 +24,10 @@ app.get('/', (_req, res) => {
     </div>
   `);
 });
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => {
+  const dbState = ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown';
+  res.json({ status: 'ok', port, database: dbState });
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/ai', aiRoutes);
@@ -32,6 +35,17 @@ app.use((err, _req, res, _next) => {
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Server error' });
 });
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => app.listen(port, () => console.log(`API running on http://localhost:${port}`)))
-  .catch(err => { console.error('MongoDB connection failed:', err.message); process.exit(1); });
+app.listen(port, () => console.log(`API running on http://localhost:${port}`));
+
+function connectMongo() {
+  if (!process.env.MONGODB_URI) return;
+  mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('MongoDB Atlas Connected successfully!'))
+    .catch(err => {
+      console.error('MongoDB Atlas Connection Warning:', err.message);
+      console.log('Retrying MongoDB connection in 10 seconds...');
+      setTimeout(connectMongo, 10000);
+    });
+}
+connectMongo();
+

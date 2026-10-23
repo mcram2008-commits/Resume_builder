@@ -1,0 +1,14 @@
+{
+  "name": "smart-resume-builder",
+  "version": "1.0.0",
+  "description": "Smart Resume Builder with 5 Formats & Job Matcher",
+  "scripts": {
+    "server": "node server/server.js",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "start": "node server/server.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
