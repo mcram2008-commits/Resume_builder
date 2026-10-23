@@ -2,8 +2,12 @@ const router = require('express').Router();
 const multer = require('multer');
 const pdfModule = require('pdf-parse');
 const mammoth = require('mammoth');
+const mongoose = require('mongoose');
 const Resume = require('../models/Resume');
 const auth = require('../middleware/auth');
+const localStore = require('../utils/localStore');
+
+const isDbConnected = () => mongoose.connection.readyState === 1;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -272,7 +276,14 @@ router.post('/parse-file', upload.single('file'), async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    res.json(await Resume.find({ user: req.userId }).sort({ updatedAt: -1 }).select('title updatedAt createdAt'));
+    if (isDbConnected()) {
+      try {
+        return res.json(await Resume.find({ user: req.userId }).sort({ updatedAt: -1 }).select('title updatedAt createdAt'));
+      } catch (err) {
+        console.warn('MongoDB query failed, using local store:', err.message);
+      }
+    }
+    return res.json(localStore.findResumesByUser(req.userId));
   } catch (e) {
     next(e);
   }
@@ -280,9 +291,17 @@ router.get('/', async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const doc = await Resume.findOne({ _id: req.params.id, user: req.userId });
-    if (!doc) return res.status(404).json({ message: 'Resume not found.' });
-    res.json(doc);
+    if (isDbConnected()) {
+      try {
+        const doc = await Resume.findOne({ _id: req.params.id, user: req.userId });
+        if (doc) return res.json(doc);
+      } catch (err) {
+        console.warn('MongoDB query failed, checking local store:', err.message);
+      }
+    }
+    const localDoc = localStore.findResumeById(req.params.id, req.userId);
+    if (!localDoc) return res.status(404).json({ message: 'Resume not found.' });
+    res.json(localDoc);
   } catch (e) {
     next(e);
   }
@@ -290,7 +309,15 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const doc = await Resume.create({ user: req.userId, title: req.body.title || 'My Resume', data: req.body.data || {} });
+    if (isDbConnected()) {
+      try {
+        const doc = await Resume.create({ user: req.userId, title: req.body.title || 'My Resume', data: req.body.data || {} });
+        return res.status(201).json(doc);
+      } catch (err) {
+        console.warn('MongoDB create failed, switching to local store:', err.message);
+      }
+    }
+    const doc = localStore.createResume({ user: req.userId, title: req.body.title || 'My Resume', data: req.body.data || {} });
     res.status(201).json(doc);
   } catch (e) {
     next(e);
@@ -299,11 +326,19 @@ router.post('/', async (req, res, next) => {
 
 router.put('/:id', async (req, res, next) => {
   try {
-    const doc = await Resume.findOneAndUpdate(
-      { _id: req.params.id, user: req.userId },
-      { title: req.body.title || 'My Resume', data: req.body.data || {} },
-      { new: true, runValidators: true }
-    );
+    if (isDbConnected()) {
+      try {
+        const doc = await Resume.findOneAndUpdate(
+          { _id: req.params.id, user: req.userId },
+          { title: req.body.title || 'My Resume', data: req.body.data || {} },
+          { new: true, runValidators: true }
+        );
+        if (doc) return res.json(doc);
+      } catch (err) {
+        console.warn('MongoDB update failed, checking local store:', err.message);
+      }
+    }
+    const doc = localStore.updateResume(req.params.id, req.userId, { title: req.body.title, data: req.body.data });
     if (!doc) return res.status(404).json({ message: 'Resume not found.' });
     res.json(doc);
   } catch (e) {
@@ -313,8 +348,16 @@ router.put('/:id', async (req, res, next) => {
 
 router.delete('/:id', async (req, res, next) => {
   try {
-    const doc = await Resume.findOneAndDelete({ _id: req.params.id, user: req.userId });
-    if (!doc) return res.status(404).json({ message: 'Resume not found.' });
+    if (isDbConnected()) {
+      try {
+        const doc = await Resume.findOneAndDelete({ _id: req.params.id, user: req.userId });
+        if (doc) return res.json({ message: 'Resume deleted.' });
+      } catch (err) {
+        console.warn('MongoDB delete failed, checking local store:', err.message);
+      }
+    }
+    const ok = localStore.deleteResume(req.params.id, req.userId);
+    if (!ok) return res.status(404).json({ message: 'Resume not found.' });
     res.json({ message: 'Resume deleted.' });
   } catch (e) {
     next(e);

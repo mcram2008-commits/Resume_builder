@@ -257,15 +257,9 @@ function Auth({ onAuth }) {
           <span className="rounded-xl bg-indigo-500 p-2"><FileText /></span> ResumeCraft AI
         </div>
         <div>
-          <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 px-3 py-1 text-sm text-indigo-200">
-            <Sparkles size={15}/> 5 Professional Resume Formats & AI Tailor
-          </p>
           <h1 className="max-w-lg text-5xl font-bold leading-tight">
             Turn your experience into a resume that stands out.
           </h1>
-          <p className="mt-5 max-w-md text-slate-300">
-            Upload any resume (PDF, Word, or text), choose from 5 beautiful layouts, align content to your preference, and tailor to job descriptions.
-          </p>
         </div>
         <p className="text-sm text-slate-400">Your story. Your next step.</p>
       </section>
@@ -280,7 +274,7 @@ function Auth({ onAuth }) {
           <h2 className="mt-2 text-3xl font-bold text-slate-900">
             {mode === 'register' ? 'Create your account' : 'Sign in to your account'}
           </h2>
-          <p className="mt-2 text-slate-500">Upload, customize formats, and tailor your resumes with AI.</p>
+          <p className="mt-2 text-slate-500">Manage, edit, and export your resumes.</p>
           <div className="mt-7 space-y-4">
             {mode === 'register' && <Field label="Full name" value={name} onChange={setName} placeholder="Your name" />}
             <Field label="Email address" value={email} onChange={setEmail} placeholder="you@example.com" />
@@ -1724,9 +1718,6 @@ export default function App() {
           <div>
             <p className="text-sm font-semibold tracking-wider text-indigo-600 uppercase">Resume Workspace</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">Customizable Resumes & Formats</h1>
-            <p className="mt-2 text-slate-500">
-              Upload PDF or choose from 5 simple formats, customize alignment and colors, and tailor to job descriptions.
-            </p>
           </div>
           <div className="no-print flex flex-wrap gap-2">
             <button
