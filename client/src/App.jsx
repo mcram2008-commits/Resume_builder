@@ -5,10 +5,76 @@ import {
   Target, CheckCircle, AlertCircle, Upload, Check, Copy, Briefcase,
   RefreshCw, X, FileUp, Palette, AlignLeft, AlignCenter, AlignRight,
   Type, SlidersHorizontal, Award, Languages, Layers, Camera, Image,
-  FileDown, CheckSquare, ShieldCheck, ChevronDown, ChevronUp, PlusCircle
+  FileDown, CheckSquare, ShieldCheck, ChevronDown, ChevronUp, PlusCircle,
+  GripVertical, RotateCcw, EyeOff
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
+const DEFAULT_SECTION_ORDER = [
+  'summary',
+  'skills',
+  'experience',
+  'projects',
+  'education',
+  'certifications',
+  'languages',
+  'customSections',
+  'additionalInfo'
+];
+
+const SECTION_METADATA = {
+  summary: { label: 'Professional Summary', icon: FileText, desc: 'Profile summary & career objective' },
+  skills: { label: 'Technical Skills', icon: Code2, desc: 'Core tech stack, tools & languages' },
+  experience: { label: 'Work Experience', icon: BriefcaseBusiness, desc: 'Previous employment & internships' },
+  projects: { label: 'Featured Projects', icon: Target, desc: 'Key projects & technical implementations' },
+  education: { label: 'Education', icon: GraduationCap, desc: 'Colleges, degrees & academics' },
+  certifications: { label: 'Certifications & Licenses', icon: Award, desc: 'Verified courses, licenses & certificates' },
+  languages: { label: 'Languages', icon: Languages, desc: 'Spoken languages & fluency levels' },
+  customSections: { label: 'Custom Sections', icon: Layers, desc: 'User-defined sections and custom blocks' },
+  additionalInfo: { label: 'Additional Information', icon: SlidersHorizontal, desc: 'Extra notes, awards & activities' }
+};
+
+function getSectionOrder(data) {
+  const current = Array.isArray(data?.sectionOrder) ? data.sectionOrder : [];
+  const combined = current.filter(k => DEFAULT_SECTION_ORDER.includes(k));
+  for (const s of DEFAULT_SECTION_ORDER) {
+    if (!combined.includes(s)) {
+      combined.push(s);
+    }
+  }
+  return combined;
+}
+
+function checkSectionHasData(data, key) {
+  if (!data) return false;
+  switch (key) {
+    case 'summary':
+      return Boolean(data.summary?.trim());
+    case 'skills':
+      return Boolean(data.skills?.trim());
+    case 'experience':
+      return Boolean(data.experience?.some(x => x.company || x.role || x.description));
+    case 'projects':
+      return Boolean(data.projects?.some(x => x.name || x.description));
+    case 'education':
+      return Boolean(data.education?.some(x => x.school || x.degree));
+    case 'certifications':
+      return Boolean(data.certifications?.some(x => x.name));
+    case 'languages':
+      return Boolean(data.languages?.some(x => x.name));
+    case 'customSections':
+      return Boolean(data.customSections?.some(x => x.heading || x.content));
+    case 'additionalInfo':
+      return Boolean(data.additionalInfo?.trim());
+    default:
+      return false;
+  }
+}
+
+function isSectionHidden(data, key) {
+  return Array.isArray(data?.hiddenSections) && data.hiddenSections.includes(key);
+}
 
 const emptyResume = () => ({
   fullName: '',
@@ -33,7 +99,9 @@ const emptyResume = () => ({
   accentColor: '#4f46e5', // indigo default
   fontFamily: 'sans',     // 'sans' | 'serif' | 'mono'
   fontSize: 'normal',     // 'compact' | 'normal' | 'large'
-  spacing: 'normal'       // 'compact' | 'normal' | 'spacious'
+  spacing: 'normal',      // 'compact' | 'normal' | 'spacious'
+  sectionOrder: [...DEFAULT_SECTION_ORDER],
+  hiddenSections: []
 });
 
 const ramkumarSample = () => ({
@@ -99,7 +167,9 @@ const ramkumarSample = () => ({
   accentColor: '#4f46e5',
   fontFamily: 'sans',
   fontSize: 'normal',
-  spacing: 'normal'
+  spacing: 'normal',
+  sectionOrder: [...DEFAULT_SECTION_ORDER],
+  hiddenSections: []
 });
 
 const TEMPLATES = [
@@ -303,13 +373,49 @@ function Auth({ onAuth }) {
   );
 }
 
-function SectionTitle({ icon: Icon, title, children }) {
+function SectionTitle({ icon: Icon, title, sectionKey, isHidden, onToggleHide, children }) {
   return (
-    <div className="mb-4 flex items-center justify-between">
-      <h3 className="flex items-center gap-2 font-semibold text-slate-900">
-        <Icon size={18} className="text-indigo-600"/>{title}
-      </h3>
-      {children}
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+      <div className="flex items-center gap-2">
+        <span className={`p-1 rounded-lg ${isHidden ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-600'}`}>
+          <Icon size={18}/>
+        </span>
+        <h3 className={`font-bold ${isHidden ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+          {title}
+        </h3>
+        {isHidden && (
+          <span className="rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 border border-rose-200">
+            Hidden from Resume
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {sectionKey && onToggleHide && (
+          <button
+            type="button"
+            onClick={() => onToggleHide(sectionKey)}
+            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold border transition ${
+              isHidden
+                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 shadow-2xs'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
+            }`}
+            title={isHidden ? `Click to show "${title}" in resume` : `Click to hide "${title}" from resume`}
+          >
+            {isHidden ? (
+              <>
+                <EyeOff size={13} className="text-rose-600"/>
+                <span>Show Section</span>
+              </>
+            ) : (
+              <>
+                <Eye size={13} className="text-emerald-600"/>
+                <span>Hide</span>
+              </>
+            )}
+          </button>
+        )}
+        {children}
+      </div>
     </div>
   );
 }
@@ -326,72 +432,73 @@ function generateAtsPlainText(data) {
   if (contacts.length) lines.push(contacts.join(' | '));
   lines.push('------------------------------------------------------------');
 
-  if (data.summary) {
-    lines.push('\nPROFESSIONAL SUMMARY');
-    lines.push(data.summary);
-  }
-
-  if (data.skills) {
-    lines.push('\nTECHNICAL SKILLS');
-    lines.push(data.skills);
-  }
-
-  const validExp = (data.experience || []).filter(e => e.company || e.role || e.description);
-  if (validExp.length) {
-    lines.push('\nWORK EXPERIENCE');
-    validExp.forEach(e => {
-      lines.push(`${e.role || 'Role'} - ${e.company || 'Company'} (${e.period || ''})`);
-      if (e.description) lines.push(e.description);
-      lines.push('');
-    });
-  }
-
-  const validProj = (data.projects || []).filter(p => p.name || p.description);
-  if (validProj.length) {
-    lines.push('\nFEATURED PROJECTS');
-    validProj.forEach(p => {
-      lines.push(`${p.name} ${p.tech ? `[${p.tech}]` : ''}`);
-      if (p.description) lines.push(p.description);
-      lines.push('');
-    });
-  }
-
-  const validEdu = (data.education || []).filter(e => e.school || e.degree);
-  if (validEdu.length) {
-    lines.push('\nEDUCATION');
-    validEdu.forEach(e => {
-      lines.push(`${e.degree} - ${e.school} (${e.year})`);
-    });
-  }
-
-  const validCerts = (data.certifications || []).filter(c => c.name);
-  if (validCerts.length) {
-    lines.push('\nCERTIFICATIONS & LICENSES');
-    validCerts.forEach(c => {
-      lines.push(`• ${c.name}${c.issuer ? ` — ${c.issuer}` : ''}${c.year ? ` (${c.year})` : ''}`);
-    });
-  }
-
-  const validLangs = (data.languages || []).filter(l => l.name);
-  if (validLangs.length) {
-    lines.push('\nLANGUAGES');
-    validLangs.forEach(l => {
-      lines.push(`• ${l.name}${l.level ? ` (${l.level})` : ''}`);
-    });
-  }
-
-  const validCustom = (data.customSections || []).filter(s => s.heading || s.content);
-  if (validCustom.length) {
-    validCustom.forEach(s => {
-      lines.push(`\n${(s.heading || 'ADDITIONAL SECTION').toUpperCase()}`);
-      if (s.content) lines.push(s.content);
-    });
-  }
-
-  if (data.additionalInfo) {
-    lines.push('\nADDITIONAL INFORMATION');
-    lines.push(data.additionalInfo);
-  }
+  const order = getSectionOrder(data);
+  const hiddenSections = Array.isArray(data?.hiddenSections) ? data.hiddenSections : [];
+  order.forEach(secKey => {
+    if (hiddenSections.includes(secKey)) return;
+    if (secKey === 'summary' && data.summary) {
+      lines.push('\nPROFESSIONAL SUMMARY');
+      lines.push(data.summary);
+    } else if (secKey === 'skills' && data.skills) {
+      lines.push('\nTECHNICAL SKILLS');
+      lines.push(data.skills);
+    } else if (secKey === 'experience') {
+      const validExp = (data.experience || []).filter(e => e.company || e.role || e.description);
+      if (validExp.length) {
+        lines.push('\nWORK EXPERIENCE');
+        validExp.forEach(e => {
+          lines.push(`${e.role || 'Role'} - ${e.company || 'Company'} (${e.period || ''})`);
+          if (e.description) lines.push(e.description);
+          lines.push('');
+        });
+      }
+    } else if (secKey === 'projects') {
+      const validProj = (data.projects || []).filter(p => p.name || p.description);
+      if (validProj.length) {
+        lines.push('\nFEATURED PROJECTS');
+        validProj.forEach(p => {
+          lines.push(`${p.name} ${p.tech ? `[${p.tech}]` : ''}`);
+          if (p.description) lines.push(p.description);
+          lines.push('');
+        });
+      }
+    } else if (secKey === 'education') {
+      const validEdu = (data.education || []).filter(e => e.school || e.degree);
+      if (validEdu.length) {
+        lines.push('\nEDUCATION');
+        validEdu.forEach(e => {
+          lines.push(`${e.degree} - ${e.school} (${e.year})`);
+        });
+      }
+    } else if (secKey === 'certifications') {
+      const validCerts = (data.certifications || []).filter(c => c.name);
+      if (validCerts.length) {
+        lines.push('\nCERTIFICATIONS & LICENSES');
+        validCerts.forEach(c => {
+          lines.push(`• ${c.name}${c.issuer ? ` — ${c.issuer}` : ''}${c.year ? ` (${c.year})` : ''}`);
+        });
+      }
+    } else if (secKey === 'languages') {
+      const validLangs = (data.languages || []).filter(l => l.name);
+      if (validLangs.length) {
+        lines.push('\nLANGUAGES');
+        validLangs.forEach(l => {
+          lines.push(`• ${l.name}${l.level ? ` (${l.level})` : ''}`);
+        });
+      }
+    } else if (secKey === 'customSections') {
+      const validCustom = (data.customSections || []).filter(s => s.heading || s.content);
+      if (validCustom.length) {
+        validCustom.forEach(s => {
+          lines.push(`\n${(s.heading || 'ADDITIONAL SECTION').toUpperCase()}`);
+          if (s.content) lines.push(s.content);
+        });
+      }
+    } else if (secKey === 'additionalInfo' && data.additionalInfo) {
+      lines.push('\nADDITIONAL INFORMATION');
+      lines.push(data.additionalInfo);
+    }
+  });
 
   return lines.join('\n');
 }
@@ -589,6 +696,8 @@ function ResumePreview({ data }) {
   const languages = (data.languages || []).filter(l => l.name);
 
   const alignClass = align === 'center' ? 'text-center items-center justify-center' : align === 'right' ? 'text-right items-end justify-end' : 'text-left items-start justify-start';
+  const sectionOrder = getSectionOrder(data);
+  const hiddenSections = Array.isArray(data.hiddenSections) ? data.hiddenSections : [];
 
   // -----------------------------------------------------------
   // TEMPLATE 1: MODERN TECH
@@ -616,120 +725,138 @@ function ResumePreview({ data }) {
           )}
         </header>
 
-        {data.summary && (
-          <section>
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Professional Summary</h2>
-            <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{data.summary}</p>
-          </section>
-        )}
-
-        {skills.length > 0 && (
-          <section>
-            <h2 className="mb-2.5 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Technical Skills</h2>
-            <div className="flex flex-wrap gap-1.5">
-              {skills.map((s, i) => (
-                <span key={i} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-800">
-                  {s}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.experience?.some(x => x.company || x.role || x.description) && (
-          <section>
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Work Experience</h2>
-            {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
-              <div key={i} className="mb-3.5">
-                <div className="flex flex-wrap justify-between items-baseline gap-2">
-                  <strong className="text-sm text-slate-900">{x.role || 'Role'}{x.company ? ` · ${x.company}` : ''}</strong>
-                  <span className="text-xs font-medium text-slate-500">{x.period}</span>
+        {sectionOrder.map(secKey => {
+          if (hiddenSections.includes(secKey)) return null;
+          if (secKey === 'summary' && data.summary) {
+            return (
+              <section key="summary">
+                <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Professional Summary</h2>
+                <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{data.summary}</p>
+              </section>
+            );
+          }
+          if (secKey === 'skills' && skills.length > 0) {
+            return (
+              <section key="skills">
+                <h2 className="mb-2.5 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Technical Skills</h2>
+                <div className="flex flex-wrap gap-1.5">
+                  {skills.map((s, i) => (
+                    <span key={i} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-800">
+                      {s}
+                    </span>
+                  ))}
                 </div>
-                <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{x.description}</p>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {data.projects?.some(x => x.name || x.description) && (
-          <section>
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Projects</h2>
-            {data.projects.filter(x => x.name || x.description).map((x, i) => (
-              <div key={i} className="mb-3.5">
-                <div className="flex flex-wrap justify-between items-baseline gap-2">
-                  <strong className="text-sm text-slate-900">{x.name || 'Project'}</strong>
-                  {x.tech && <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${accent}15`, color: accent }}>{x.tech}</span>}
-                </div>
-                <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{x.description}</p>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {data.education?.some(x => x.school || x.degree) && (
-          <section>
-            <h2 className="mb-2.5 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Education</h2>
-            {data.education.filter(x => x.school || x.degree).map((x, i) => (
-              <div key={i} className="mb-2 flex flex-wrap justify-between items-baseline gap-2">
-                <div>
-                  <strong className="text-sm text-slate-900">{x.degree}</strong>
-                  <p className="text-xs text-slate-600">{x.school}</p>
-                </div>
-                <span className="text-xs font-medium text-slate-500">{x.year}</span>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {certifications.length > 0 && (
-          <section>
-            <h2 className="mb-2.5 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Certifications & Licenses</h2>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {certifications.map((c, i) => (
-                <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs">
-                  <div className="flex justify-between items-baseline gap-2">
-                    <strong className="text-slate-900 font-semibold">{c.name}</strong>
-                    {c.year && <span className="text-[11px] font-medium text-slate-500 shrink-0">{c.year}</span>}
+              </section>
+            );
+          }
+          if (secKey === 'experience' && data.experience?.some(x => x.company || x.role || x.description)) {
+            return (
+              <section key="experience">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Work Experience</h2>
+                {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
+                  <div key={i} className="mb-3.5">
+                    <div className="flex flex-wrap justify-between items-baseline gap-2">
+                      <strong className="text-sm text-slate-900">{x.role || 'Role'}{x.company ? ` · ${x.company}` : ''}</strong>
+                      <span className="text-xs font-medium text-slate-500">{x.period}</span>
+                    </div>
+                    <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{x.description}</p>
                   </div>
-                  {c.issuer && <p className="text-[11px] text-slate-600 mt-0.5">{c.issuer}</p>}
+                ))}
+              </section>
+            );
+          }
+          if (secKey === 'projects' && data.projects?.some(x => x.name || x.description)) {
+            return (
+              <section key="projects">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Projects</h2>
+                {data.projects.filter(x => x.name || x.description).map((x, i) => (
+                  <div key={i} className="mb-3.5">
+                    <div className="flex flex-wrap justify-between items-baseline gap-2">
+                      <strong className="text-sm text-slate-900">{x.name || 'Project'}</strong>
+                      {x.tech && <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${accent}15`, color: accent }}>{x.tech}</span>}
+                    </div>
+                    <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{x.description}</p>
+                  </div>
+                ))}
+              </section>
+            );
+          }
+          if (secKey === 'education' && data.education?.some(x => x.school || x.degree)) {
+            return (
+              <section key="education">
+                <h2 className="mb-2.5 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Education</h2>
+                {data.education.filter(x => x.school || x.degree).map((x, i) => (
+                  <div key={i} className="mb-2 flex flex-wrap justify-between items-baseline gap-2">
+                    <div>
+                      <strong className="text-sm text-slate-900">{x.degree}</strong>
+                      <p className="text-xs text-slate-600">{x.school}</p>
+                    </div>
+                    <span className="text-xs font-medium text-slate-500">{x.year}</span>
+                  </div>
+                ))}
+              </section>
+            );
+          }
+          if (secKey === 'certifications' && certifications.length > 0) {
+            return (
+              <section key="certifications">
+                <h2 className="mb-2.5 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Certifications & Licenses</h2>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {certifications.map((c, i) => (
+                    <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs">
+                      <div className="flex justify-between items-baseline gap-2">
+                        <strong className="text-slate-900 font-semibold">{c.name}</strong>
+                        {c.year && <span className="text-[11px] font-medium text-slate-500 shrink-0">{c.year}</span>}
+                      </div>
+                      {c.issuer && <p className="text-[11px] text-slate-600 mt-0.5">{c.issuer}</p>}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {languages.length > 0 && (
-          <section>
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Languages</h2>
-            <div className="flex flex-wrap gap-2">
-              {languages.map((l, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-800">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
-                  <strong>{l.name}</strong>
-                  {l.level && <span className="text-slate-500">({l.level})</span>}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
-          <section key={i}>
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>
-              {sec.heading || 'Custom Section'}
-            </h2>
-            <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">
-              {sec.content}
-            </p>
-          </section>
-        ))}
-
-        {data.additionalInfo && (
-          <section className="border-t pt-3">
-            <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Additional Information</h2>
-            <p className="text-xs text-slate-700 leading-relaxed">{data.additionalInfo}</p>
-          </section>
-        )}
+              </section>
+            );
+          }
+          if (secKey === 'languages' && languages.length > 0) {
+            return (
+              <section key="languages">
+                <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Languages</h2>
+                <div className="flex flex-wrap gap-2">
+                  {languages.map((l, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-800">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+                      <strong>{l.name}</strong>
+                      {l.level && <span className="text-slate-500">({l.level})</span>}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+          if (secKey === 'customSections' && data.customSections?.some(x => x.heading || x.content)) {
+            return (
+              <React.Fragment key="customSections">
+                {data.customSections.filter(x => x.heading || x.content).map((sec, i) => (
+                  <section key={i}>
+                    <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>
+                      {sec.heading || 'Custom Section'}
+                    </h2>
+                    <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">
+                      {sec.content}
+                    </p>
+                  </section>
+                ))}
+              </React.Fragment>
+            );
+          }
+          if (secKey === 'additionalInfo' && data.additionalInfo) {
+            return (
+              <section key="additionalInfo" className="border-t pt-3">
+                <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Additional Information</h2>
+                <p className="text-xs text-slate-700 leading-relaxed">{data.additionalInfo}</p>
+              </section>
+            );
+          }
+          return null;
+        })}
       </article>
     );
   }
@@ -759,105 +886,123 @@ function ResumePreview({ data }) {
           )}
         </header>
 
-        {data.summary && (
-          <section>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Summary</h2>
-            <p className="mt-2 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">{data.summary}</p>
-          </section>
-        )}
-
-        {skills.length > 0 && (
-          <section>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Technical Skills</h2>
-            <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-800">{skills.join(' • ')}</p>
-          </section>
-        )}
-
-        {data.experience?.some(x => x.company || x.role || x.description) && (
-          <section>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Experience</h2>
-            {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
-              <div key={i} className="mt-3">
-                <div className="flex flex-wrap justify-between items-baseline">
-                  <strong className="text-sm font-bold text-slate-900">{x.role} — <span className="font-semibold italic text-slate-700">{x.company}</span></strong>
-                  <span className="text-xs text-slate-600">{x.period}</span>
+        {sectionOrder.map(secKey => {
+          if (hiddenSections.includes(secKey)) return null;
+          if (secKey === 'summary' && data.summary) {
+            return (
+              <section key="summary">
+                <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Summary</h2>
+                <p className="mt-2 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">{data.summary}</p>
+              </section>
+            );
+          }
+          if (secKey === 'skills' && skills.length > 0) {
+            return (
+              <section key="skills">
+                <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Technical Skills</h2>
+                <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-800">{skills.join(' • ')}</p>
+              </section>
+            );
+          }
+          if (secKey === 'experience' && data.experience?.some(x => x.company || x.role || x.description)) {
+            return (
+              <section key="experience">
+                <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Experience</h2>
+                {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
+                  <div key={i} className="mt-3">
+                    <div className="flex flex-wrap justify-between items-baseline">
+                      <strong className="text-sm font-bold text-slate-900">{x.role} — <span className="font-semibold italic text-slate-700">{x.company}</span></strong>
+                      <span className="text-xs text-slate-600">{x.period}</span>
+                    </div>
+                    <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">{x.description}</p>
+                  </div>
+                ))}
+              </section>
+            );
+          }
+          if (secKey === 'projects' && data.projects?.some(x => x.name || x.description)) {
+            return (
+              <section key="projects">
+                <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Projects</h2>
+                {data.projects.filter(x => x.name || x.description).map((x, i) => (
+                  <div key={i} className="mt-3">
+                    <div className="flex flex-wrap justify-between items-baseline">
+                      <strong className="text-sm font-bold text-slate-900">{x.name}</strong>
+                      {x.tech && <span className="text-xs italic text-slate-600">[{x.tech}]</span>}
+                    </div>
+                    <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">{x.description}</p>
+                  </div>
+                ))}
+              </section>
+            );
+          }
+          if (secKey === 'education' && data.education?.some(x => x.school || x.degree)) {
+            return (
+              <section key="education">
+                <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Education</h2>
+                {data.education.filter(x => x.school || x.degree).map((x, i) => (
+                  <div key={i} className="mt-2 flex flex-wrap justify-between items-baseline">
+                    <div>
+                      <strong className="text-sm text-slate-900">{x.degree}</strong>
+                      <p className="text-xs text-slate-700">{x.school}</p>
+                    </div>
+                    <span className="text-xs text-slate-600">{x.year}</span>
+                  </div>
+                ))}
+              </section>
+            );
+          }
+          if (secKey === 'certifications' && certifications.length > 0) {
+            return (
+              <section key="certifications">
+                <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Certifications & Licenses</h2>
+                <div className="mt-2 space-y-1.5 text-xs text-slate-800">
+                  {certifications.map((c, i) => (
+                    <div key={i} className="flex justify-between items-baseline">
+                      <span>• <strong>{c.name}</strong>{c.issuer ? ` (${c.issuer})` : ''}</span>
+                      {c.year && <span className="text-slate-600">{c.year}</span>}
+                    </div>
+                  ))}
                 </div>
-                <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">{x.description}</p>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {data.projects?.some(x => x.name || x.description) && (
-          <section>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Projects</h2>
-            {data.projects.filter(x => x.name || x.description).map((x, i) => (
-              <div key={i} className="mt-3">
-                <div className="flex flex-wrap justify-between items-baseline">
-                  <strong className="text-sm font-bold text-slate-900">{x.name}</strong>
-                  {x.tech && <span className="text-xs italic text-slate-600">[{x.tech}]</span>}
-                </div>
-                <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">{x.description}</p>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {data.education?.some(x => x.school || x.degree) && (
-          <section>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Education</h2>
-            {data.education.filter(x => x.school || x.degree).map((x, i) => (
-              <div key={i} className="mt-2 flex flex-wrap justify-between items-baseline">
-                <div>
-                  <strong className="text-sm text-slate-900">{x.degree}</strong>
-                  <p className="text-xs text-slate-700">{x.school}</p>
-                </div>
-                <span className="text-xs text-slate-600">{x.year}</span>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {certifications.length > 0 && (
-          <section>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Certifications & Licenses</h2>
-            <div className="mt-2 space-y-1.5 text-xs text-slate-800">
-              {certifications.map((c, i) => (
-                <div key={i} className="flex justify-between items-baseline">
-                  <span>• <strong>{c.name}</strong>{c.issuer ? ` (${c.issuer})` : ''}</span>
-                  {c.year && <span className="text-slate-600">{c.year}</span>}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {languages.length > 0 && (
-          <section>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Languages</h2>
-            <p className="mt-2 text-xs text-slate-800">
-              {languages.map(l => `${l.name}${l.level ? ` (${l.level})` : ''}`).join(' • ')}
-            </p>
-          </section>
-        )}
-
-        {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
-          <section key={i}>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">
-              {sec.heading || 'Custom Section'}
-            </h2>
-            <p className="mt-2 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">
-              {sec.content}
-            </p>
-          </section>
-        ))}
-
-        {data.additionalInfo && (
-          <section>
-            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Additional Information</h2>
-            <p className="mt-2 text-xs text-slate-800 leading-relaxed">{data.additionalInfo}</p>
-          </section>
-        )}
+              </section>
+            );
+          }
+          if (secKey === 'languages' && languages.length > 0) {
+            return (
+              <section key="languages">
+                <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Languages</h2>
+                <p className="mt-2 text-xs text-slate-800">
+                  {languages.map(l => `${l.name}${l.level ? ` (${l.level})` : ''}`).join(' • ')}
+                </p>
+              </section>
+            );
+          }
+          if (secKey === 'customSections' && data.customSections?.some(x => x.heading || x.content)) {
+            return (
+              <React.Fragment key="customSections">
+                {data.customSections.filter(x => x.heading || x.content).map((sec, i) => (
+                  <section key={i}>
+                    <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">
+                      {sec.heading || 'Custom Section'}
+                    </h2>
+                    <p className="mt-2 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">
+                      {sec.content}
+                    </p>
+                  </section>
+                ))}
+              </React.Fragment>
+            );
+          }
+          if (secKey === 'additionalInfo' && data.additionalInfo) {
+            return (
+              <section key="additionalInfo">
+                <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">Additional Information</h2>
+                <p className="mt-2 text-xs text-slate-800 leading-relaxed">{data.additionalInfo}</p>
+              </section>
+            );
+          }
+          return null;
+        })}
       </article>
     );
   }
@@ -899,128 +1044,152 @@ function ResumePreview({ data }) {
               </div>
             </div>
 
-            {/* Skills in sidebar */}
-            {skills.length > 0 && (
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Skills</h3>
-                <div className="flex flex-wrap gap-1">
-                  {skills.map((s, i) => (
-                    <span key={i} className="rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-800 shadow-2xs">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Languages in sidebar */}
-            {languages.length > 0 && (
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Languages</h3>
-                <div className="space-y-1 text-xs">
-                  {languages.map((l, i) => (
-                    <div key={i} className="flex justify-between items-center text-[11px]">
-                      <span className="font-semibold text-slate-800">{l.name}</span>
-                      <span className="text-slate-500 text-[10px]">{l.level}</span>
+            {/* Sidebar content blocks ordered dynamically according to sectionOrder */}
+            {['skills', 'education', 'certifications', 'languages', 'additionalInfo']
+              .sort((a, b) => sectionOrder.indexOf(a) - sectionOrder.indexOf(b))
+              .map(secKey => {
+                if (hiddenSections.includes(secKey)) return null;
+                if (secKey === 'skills' && skills.length > 0) {
+                  return (
+                    <div key="skills">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Skills</h3>
+                      <div className="flex flex-wrap gap-1">
+                        {skills.map((s, i) => (
+                          <span key={i} className="rounded bg-white border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-800 shadow-2xs">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Education in sidebar */}
-            {data.education?.some(x => x.school || x.degree) && (
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Education</h3>
-                <div className="space-y-2 text-xs">
-                  {data.education.filter(x => x.school || x.degree).map((x, i) => (
-                    <div key={i} className="border-l-2 pl-2" style={{ borderColor: accent }}>
-                      <p className="font-bold text-slate-900">{x.degree}</p>
-                      <p className="text-slate-600 text-[11px]">{x.school}</p>
-                      <p className="text-slate-400 text-[10px]">{x.year}</p>
+                  );
+                }
+                if (secKey === 'education' && data.education?.some(x => x.school || x.degree)) {
+                  return (
+                    <div key="education">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Education</h3>
+                      <div className="space-y-2 text-xs">
+                        {data.education.filter(x => x.school || x.degree).map((x, i) => (
+                          <div key={i} className="border-l-2 pl-2" style={{ borderColor: accent }}>
+                            <p className="font-bold text-slate-900">{x.degree}</p>
+                            <p className="text-slate-600 text-[11px]">{x.school}</p>
+                            <p className="text-slate-400 text-[10px]">{x.year}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Certifications in sidebar */}
-            {certifications.length > 0 && (
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Certifications</h3>
-                <div className="space-y-1.5 text-xs">
-                  {certifications.map((c, i) => (
-                    <div key={i} className="rounded border border-slate-200 bg-white p-1.5 text-[11px]">
-                      <strong className="text-slate-800 block truncate">{c.name}</strong>
-                      <span className="text-slate-500 text-[10px]">{c.issuer} {c.year ? `· ${c.year}` : ''}</span>
+                  );
+                }
+                if (secKey === 'certifications' && certifications.length > 0) {
+                  return (
+                    <div key="certifications">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Certifications</h3>
+                      <div className="space-y-1.5 text-xs">
+                        {certifications.map((c, i) => (
+                          <div key={i} className="rounded border border-slate-200 bg-white p-1.5 text-[11px]">
+                            <strong className="text-slate-800 block truncate">{c.name}</strong>
+                            <span className="text-slate-500 text-[10px]">{c.issuer} {c.year ? `· ${c.year}` : ''}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {data.additionalInfo && (
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Info & Certs</h3>
-                <p className="text-[11px] text-slate-600 leading-relaxed">{data.additionalInfo}</p>
-              </div>
-            )}
+                  );
+                }
+                if (secKey === 'languages' && languages.length > 0) {
+                  return (
+                    <div key="languages">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Languages</h3>
+                      <div className="space-y-1 text-xs">
+                        {languages.map((l, i) => (
+                          <div key={i} className="flex justify-between items-center text-[11px]">
+                            <span className="font-semibold text-slate-800">{l.name}</span>
+                            <span className="text-slate-500 text-[10px]">{l.level}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                if (secKey === 'additionalInfo' && data.additionalInfo) {
+                  return (
+                    <div key="additionalInfo">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Info & Certs</h3>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">{data.additionalInfo}</p>
+                    </div>
+                  );
+                }
+                return null;
+              })}
           </div>
         </aside>
 
         {/* Right Main Body */}
         <main className={`w-full md:w-[66%] p-6 sm:p-8 ${spacingClass}`}>
-          {data.summary && (
-            <section>
-              <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>Professional Profile</h2>
-              <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-line">{data.summary}</p>
-            </section>
-          )}
-
-          {data.experience?.some(x => x.company || x.role || x.description) && (
-            <section>
-              <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>Experience</h2>
-              <div className="mt-3 space-y-3.5">
-                {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
-                  <div key={i}>
-                    <div className="flex justify-between items-baseline">
-                      <strong className="text-sm font-bold text-slate-900">{x.role} · <span className="text-slate-600 font-normal">{x.company}</span></strong>
-                      <span className="text-xs text-slate-500">{x.period}</span>
+          {['summary', 'experience', 'projects', 'customSections']
+            .sort((a, b) => sectionOrder.indexOf(a) - sectionOrder.indexOf(b))
+            .map(secKey => {
+              if (hiddenSections.includes(secKey)) return null;
+              if (secKey === 'summary' && data.summary) {
+                return (
+                  <section key="summary">
+                    <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>Professional Profile</h2>
+                    <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-line">{data.summary}</p>
+                  </section>
+                );
+              }
+              if (secKey === 'experience' && data.experience?.some(x => x.company || x.role || x.description)) {
+                return (
+                  <section key="experience">
+                    <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>Experience</h2>
+                    <div className="mt-3 space-y-3.5">
+                      {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
+                        <div key={i}>
+                          <div className="flex justify-between items-baseline">
+                            <strong className="text-sm font-bold text-slate-900">{x.role} · <span className="text-slate-600 font-normal">{x.company}</span></strong>
+                            <span className="text-xs text-slate-500">{x.period}</span>
+                          </div>
+                          <p className="mt-1 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-line">{x.description}</p>
+                        </div>
+                      ))}
                     </div>
-                    <p className="mt-1 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-line">{x.description}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {data.projects?.some(x => x.name || x.description) && (
-            <section>
-              <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>Featured Projects</h2>
-              <div className="mt-3 space-y-3.5">
-                {data.projects.filter(x => x.name || x.description).map((x, i) => (
-                  <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-3">
-                    <div className="flex justify-between items-baseline">
-                      <strong className="text-sm font-bold text-slate-900">{x.name}</strong>
-                      {x.tech && <span className="text-[11px] font-semibold text-slate-600">{x.tech}</span>}
+                  </section>
+                );
+              }
+              if (secKey === 'projects' && data.projects?.some(x => x.name || x.description)) {
+                return (
+                  <section key="projects">
+                    <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>Featured Projects</h2>
+                    <div className="mt-3 space-y-3.5">
+                      {data.projects.filter(x => x.name || x.description).map((x, i) => (
+                        <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                          <div className="flex justify-between items-baseline">
+                            <strong className="text-sm font-bold text-slate-900">{x.name}</strong>
+                            {x.tech && <span className="text-[11px] font-semibold text-slate-600">{x.tech}</span>}
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-700 whitespace-pre-line">{x.description}</p>
+                        </div>
+                      ))}
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-700 whitespace-pre-line">{x.description}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
-            <section key={i}>
-              <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>
-                {sec.heading || 'Custom Section'}
-              </h2>
-              <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-line">
-                {sec.content}
-              </p>
-            </section>
-          ))}
+                  </section>
+                );
+              }
+              if (secKey === 'customSections' && data.customSections?.some(x => x.heading || x.content)) {
+                return (
+                  <React.Fragment key="customSections">
+                    {data.customSections.filter(x => x.heading || x.content).map((sec, i) => (
+                      <section key={i}>
+                        <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>
+                          {sec.heading || 'Custom Section'}
+                        </h2>
+                        <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                          {sec.content}
+                        </p>
+                      </section>
+                    ))}
+                  </React.Fragment>
+                );
+              }
+              return null;
+            })}
         </main>
       </article>
     );
@@ -1053,113 +1222,131 @@ function ResumePreview({ data }) {
           )}
         </header>
 
-        {data.summary && (
-          <section>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">About</h2>
-            <p className="mt-1.5 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{data.summary}</p>
-          </section>
-        )}
-
-        {skills.length > 0 && (
-          <section>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Core Competencies</h2>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {skills.map((s, i) => (
-                <span key={i} className="text-xs text-slate-800 bg-slate-100 px-2.5 py-1 rounded-sm">
-                  {s}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.experience?.some(x => x.company || x.role || x.description) && (
-          <section>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Experience</h2>
-            <div className="mt-2 space-y-3">
-              {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
-                <div key={i} className="border-l-2 pl-3" style={{ borderColor: accent }}>
-                  <div className="flex justify-between items-baseline">
-                    <strong className="text-sm text-slate-900">{x.role} <span className="font-normal text-slate-500">at {x.company}</span></strong>
-                    <span className="text-xs text-slate-400">{x.period}</span>
-                  </div>
-                  <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-600">{x.description}</p>
+        {sectionOrder.map(secKey => {
+          if (hiddenSections.includes(secKey)) return null;
+          if (secKey === 'summary' && data.summary) {
+            return (
+              <section key="summary">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">About</h2>
+                <p className="mt-1.5 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{data.summary}</p>
+              </section>
+            );
+          }
+          if (secKey === 'skills' && skills.length > 0) {
+            return (
+              <section key="skills">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Core Competencies</h2>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {skills.map((s, i) => (
+                    <span key={i} className="text-xs text-slate-800 bg-slate-100 px-2.5 py-1 rounded-sm">
+                      {s}
+                    </span>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.projects?.some(x => x.name || x.description) && (
-          <section>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Selected Work</h2>
-            <div className="mt-2 space-y-3">
-              {data.projects.filter(x => x.name || x.description).map((x, i) => (
-                <div key={i} className="border border-slate-200/80 rounded p-3">
-                  <div className="flex justify-between items-baseline">
-                    <strong className="text-sm font-medium text-slate-900">{x.name}</strong>
-                    {x.tech && <span className="text-xs text-slate-500 font-mono">{x.tech}</span>}
-                  </div>
-                  <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-slate-600">{x.description}</p>
+              </section>
+            );
+          }
+          if (secKey === 'experience' && data.experience?.some(x => x.company || x.role || x.description)) {
+            return (
+              <section key="experience">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Experience</h2>
+                <div className="mt-2 space-y-3">
+                  {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
+                    <div key={i} className="border-l-2 pl-3" style={{ borderColor: accent }}>
+                      <div className="flex justify-between items-baseline">
+                        <strong className="text-sm text-slate-900">{x.role} <span className="font-normal text-slate-500">at {x.company}</span></strong>
+                        <span className="text-xs text-slate-400">{x.period}</span>
+                      </div>
+                      <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-600">{x.description}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.education?.some(x => x.school || x.degree) && (
-          <section>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Education</h2>
-            <div className="mt-2 space-y-1.5">
-              {data.education.filter(x => x.school || x.degree).map((x, i) => (
-                <div key={i} className="flex justify-between items-baseline text-xs">
-                  <div><strong className="text-slate-800">{x.degree}</strong> — <span className="text-slate-500">{x.school}</span></div>
-                  <span className="text-slate-400">{x.year}</span>
+              </section>
+            );
+          }
+          if (secKey === 'projects' && data.projects?.some(x => x.name || x.description)) {
+            return (
+              <section key="projects">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Selected Work</h2>
+                <div className="mt-2 space-y-3">
+                  {data.projects.filter(x => x.name || x.description).map((x, i) => (
+                    <div key={i} className="border border-slate-200/80 rounded p-3">
+                      <div className="flex justify-between items-baseline">
+                        <strong className="text-sm font-medium text-slate-900">{x.name}</strong>
+                        {x.tech && <span className="text-xs text-slate-500 font-mono">{x.tech}</span>}
+                      </div>
+                      <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-slate-600">{x.description}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {certifications.length > 0 && (
-          <section>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Certifications</h2>
-            <div className="mt-2 space-y-1.5 text-xs">
-              {certifications.map((c, i) => (
-                <div key={i} className="flex justify-between items-baseline text-slate-700">
-                  <span><strong>{c.name}</strong> — {c.issuer}</span>
-                  <span className="text-slate-400">{c.year}</span>
+              </section>
+            );
+          }
+          if (secKey === 'education' && data.education?.some(x => x.school || x.degree)) {
+            return (
+              <section key="education">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Education</h2>
+                <div className="mt-2 space-y-1.5">
+                  {data.education.filter(x => x.school || x.degree).map((x, i) => (
+                    <div key={i} className="flex justify-between items-baseline text-xs">
+                      <div><strong className="text-slate-800">{x.degree}</strong> — <span className="text-slate-500">{x.school}</span></div>
+                      <span className="text-slate-400">{x.year}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {languages.length > 0 && (
-          <section>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Languages</h2>
-            <p className="mt-1.5 text-xs text-slate-700">
-              {languages.map(l => `${l.name} (${l.level})`).join('  /  ')}
-            </p>
-          </section>
-        )}
-
-        {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
-          <section key={i}>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
-              {sec.heading || 'Custom Section'}
-            </h2>
-            <p className="mt-1.5 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">
-              {sec.content}
-            </p>
-          </section>
-        ))}
-
-        {data.additionalInfo && (
-          <section className="text-xs text-slate-500 pt-2 border-t">
-            {data.additionalInfo}
-          </section>
-        )}
+              </section>
+            );
+          }
+          if (secKey === 'certifications' && certifications.length > 0) {
+            return (
+              <section key="certifications">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Certifications</h2>
+                <div className="mt-2 space-y-1.5 text-xs">
+                  {certifications.map((c, i) => (
+                    <div key={i} className="flex justify-between items-baseline text-slate-700">
+                      <span><strong>{c.name}</strong> — {c.issuer}</span>
+                      <span className="text-slate-400">{c.year}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+          if (secKey === 'languages' && languages.length > 0) {
+            return (
+              <section key="languages">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Languages</h2>
+                <p className="mt-1.5 text-xs text-slate-700">
+                  {languages.map(l => `${l.name} (${l.level})`).join('  /  ')}
+                </p>
+              </section>
+            );
+          }
+          if (secKey === 'customSections' && data.customSections?.some(x => x.heading || x.content)) {
+            return (
+              <React.Fragment key="customSections">
+                {data.customSections.filter(x => x.heading || x.content).map((sec, i) => (
+                  <section key={i}>
+                    <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+                      {sec.heading || 'Custom Section'}
+                    </h2>
+                    <p className="mt-1.5 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">
+                      {sec.content}
+                    </p>
+                  </section>
+                ))}
+              </React.Fragment>
+            );
+          }
+          if (secKey === 'additionalInfo' && data.additionalInfo) {
+            return (
+              <section key="additionalInfo" className="text-xs text-slate-500 pt-2 border-t">
+                {data.additionalInfo}
+              </section>
+            );
+          }
+          return null;
+        })}
       </article>
     );
   }
@@ -1192,144 +1379,162 @@ function ResumePreview({ data }) {
       </header>
 
       <div className={`p-8 sm:p-10 ${spacingClass}`}>
-        {data.summary && (
-          <section>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Executive Summary</h2>
-            </div>
-            <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 pl-3">{data.summary}</p>
-          </section>
-        )}
-
-        {skills.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Skills & Tooling</h2>
-            </div>
-            <div className="flex flex-wrap gap-1.5 pl-3">
-              {skills.map((s, i) => (
-                <span key={i} className="rounded-full px-3 py-1 text-xs font-semibold shadow-2xs" style={{ backgroundColor: `${accent}18`, color: accent }}>
-                  {s}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.experience?.some(x => x.company || x.role || x.description) && (
-          <section>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Work History</h2>
-            </div>
-            <div className="pl-3 space-y-3">
-              {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
-                <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                  <div className="flex justify-between items-baseline">
-                    <strong className="text-sm font-bold text-slate-900">{x.role} · {x.company}</strong>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600">{x.period}</span>
-                  </div>
-                  <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{x.description}</p>
+        {sectionOrder.map(secKey => {
+          if (hiddenSections.includes(secKey)) return null;
+          if (secKey === 'summary' && data.summary) {
+            return (
+              <section key="summary">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Executive Summary</h2>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.projects?.some(x => x.name || x.description) && (
-          <section>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Key Projects</h2>
-            </div>
-            <div className="pl-3 space-y-3">
-              {data.projects.filter(x => x.name || x.description).map((x, i) => (
-                <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                  <div className="flex justify-between items-baseline">
-                    <strong className="text-sm font-bold text-slate-900">{x.name}</strong>
-                    {x.tech && <span className="text-xs font-medium text-slate-500">{x.tech}</span>}
-                  </div>
-                  <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-slate-700">{x.description}</p>
+                <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 pl-3">{data.summary}</p>
+              </section>
+            );
+          }
+          if (secKey === 'skills' && skills.length > 0) {
+            return (
+              <section key="skills">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Skills & Tooling</h2>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.education?.some(x => x.school || x.degree) && (
-          <section>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Education</h2>
-            </div>
-            <div className="pl-3 space-y-1.5">
-              {data.education.filter(x => x.school || x.degree).map((x, i) => (
-                <div key={i} className="flex justify-between items-baseline text-xs">
-                  <div><strong className="text-slate-900">{x.degree}</strong> — <span className="text-slate-600">{x.school}</span></div>
-                  <span className="text-slate-500">{x.year}</span>
+                <div className="flex flex-wrap gap-1.5 pl-3">
+                  {skills.map((s, i) => (
+                    <span key={i} className="rounded-full px-3 py-1 text-xs font-semibold shadow-2xs" style={{ backgroundColor: `${accent}18`, color: accent }}>
+                      {s}
+                    </span>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {certifications.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Certifications</h2>
-            </div>
-            <div className="pl-3 grid gap-2 sm:grid-cols-2">
-              {certifications.map((c, i) => (
-                <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs">
-                  <div className="flex justify-between items-baseline">
-                    <strong className="text-slate-900">{c.name}</strong>
-                    {c.year && <span className="text-[11px] font-medium text-slate-500">{c.year}</span>}
-                  </div>
-                  {c.issuer && <p className="text-[11px] text-slate-600">{c.issuer}</p>}
+              </section>
+            );
+          }
+          if (secKey === 'experience' && data.experience?.some(x => x.company || x.role || x.description)) {
+            return (
+              <section key="experience">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Work History</h2>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {languages.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Languages</h2>
-            </div>
-            <div className="pl-3 flex flex-wrap gap-2">
-              {languages.map((l, i) => (
-                <span key={i} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-800">
-                  {l.name} {l.level && <span className="text-slate-500">({l.level})</span>}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
-          <section key={i}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">
-                {sec.heading || 'Custom Section'}
-              </h2>
-            </div>
-            <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 pl-3">
-              {sec.content}
-            </p>
-          </section>
-        ))}
-
-        {data.additionalInfo && (
-          <section className="pl-3 pt-2 text-xs text-slate-600">
-            <strong>Certifications & Details:</strong> {data.additionalInfo}
-          </section>
-        )}
+                <div className="pl-3 space-y-3">
+                  {data.experience.filter(x => x.company || x.role || x.description).map((x, i) => (
+                    <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                      <div className="flex justify-between items-baseline">
+                        <strong className="text-sm font-bold text-slate-900">{x.role} · {x.company}</strong>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600">{x.period}</span>
+                      </div>
+                      <p className="mt-1 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">{x.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+          if (secKey === 'projects' && data.projects?.some(x => x.name || x.description)) {
+            return (
+              <section key="projects">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Key Projects</h2>
+                </div>
+                <div className="pl-3 space-y-3">
+                  {data.projects.filter(x => x.name || x.description).map((x, i) => (
+                    <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                      <div className="flex justify-between items-baseline">
+                        <strong className="text-sm font-bold text-slate-900">{x.name}</strong>
+                        {x.tech && <span className="text-xs font-medium text-slate-500">{x.tech}</span>}
+                      </div>
+                      <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-slate-700">{x.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+          if (secKey === 'education' && data.education?.some(x => x.school || x.degree)) {
+            return (
+              <section key="education">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Education</h2>
+                </div>
+                <div className="pl-3 space-y-1.5">
+                  {data.education.filter(x => x.school || x.degree).map((x, i) => (
+                    <div key={i} className="flex justify-between items-baseline text-xs">
+                      <div><strong className="text-slate-900">{x.degree}</strong> — <span className="text-slate-600">{x.school}</span></div>
+                      <span className="text-slate-500">{x.year}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+          if (secKey === 'certifications' && certifications.length > 0) {
+            return (
+              <section key="certifications">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Certifications</h2>
+                </div>
+                <div className="pl-3 grid gap-2 sm:grid-cols-2">
+                  {certifications.map((c, i) => (
+                    <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 text-xs">
+                      <div className="flex justify-between items-baseline">
+                        <strong className="text-slate-900">{c.name}</strong>
+                        {c.year && <span className="text-[11px] font-medium text-slate-500">{c.year}</span>}
+                      </div>
+                      {c.issuer && <p className="text-[11px] text-slate-600">{c.issuer}</p>}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+          if (secKey === 'languages' && languages.length > 0) {
+            return (
+              <section key="languages">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">Languages</h2>
+                </div>
+                <div className="pl-3 flex flex-wrap gap-2">
+                  {languages.map((l, i) => (
+                    <span key={i} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-800">
+                      {l.name} {l.level && <span className="text-slate-500">({l.level})</span>}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            );
+          }
+          if (secKey === 'customSections' && data.customSections?.some(x => x.heading || x.content)) {
+            return (
+              <React.Fragment key="customSections">
+                {data.customSections.filter(x => x.heading || x.content).map((sec, i) => (
+                  <section key={i}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+                      <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">
+                        {sec.heading || 'Custom Section'}
+                      </h2>
+                    </div>
+                    <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 pl-3">
+                      {sec.content}
+                    </p>
+                  </section>
+                ))}
+              </React.Fragment>
+            );
+          }
+          if (secKey === 'additionalInfo' && data.additionalInfo) {
+            return (
+              <section key="additionalInfo" className="pl-3 pt-2 text-xs text-slate-600">
+                <strong>Certifications & Details:</strong> {data.additionalInfo}
+              </section>
+            );
+          }
+          return null;
+        })}
       </div>
     </article>
   );
@@ -1386,6 +1591,52 @@ export default function App() {
 
   function update(key, value) {
     setData(prev => ({ ...prev, [key]: value }));
+  }
+
+  const [draggedSectionIdx, setDraggedSectionIdx] = useState(null);
+
+  function moveSection(index, direction) {
+    const currentOrder = getSectionOrder(data);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= currentOrder.length) return;
+    const updated = [...currentOrder];
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
+    update('sectionOrder', updated);
+    setNotice(`Moved "${SECTION_METADATA[temp]?.label || temp}" ${direction < 0 ? 'up' : 'down'}`);
+  }
+
+  function handleDragStart(e, index) {
+    setDraggedSectionIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }
+
+  function handleDrop(e, targetIndex) {
+    e.preventDefault();
+    if (draggedSectionIdx === null || draggedSectionIdx === targetIndex) return;
+    const currentOrder = getSectionOrder(data);
+    const updated = [...currentOrder];
+    const [removed] = updated.splice(draggedSectionIdx, 1);
+    updated.splice(targetIndex, 0, removed);
+    setDraggedSectionIdx(null);
+    update('sectionOrder', updated);
+    setNotice(`Moved "${SECTION_METADATA[removed]?.label || removed}" section`);
+  }
+
+  function toggleHideSection(key) {
+    const currentHidden = Array.isArray(data.hiddenSections) ? data.hiddenSections : [];
+    const isHidden = currentHidden.includes(key);
+    const updatedHidden = isHidden
+      ? currentHidden.filter(k => k !== key)
+      : [...currentHidden, key];
+    update('hiddenSections', updatedHidden);
+    setNotice(`${isHidden ? '✅ Shown' : '👁️ Hidden'} "${SECTION_METADATA[key]?.label || key}" section in resume`);
   }
 
   function updateRow(key, index, field, value) {
@@ -1690,7 +1941,6 @@ export default function App() {
             <span className="rounded-xl bg-indigo-600 p-2 text-white"><FileText size={21}/></span>
             <div>
               <p className="font-bold text-slate-900">ResumeCraft <span className="text-indigo-600">AI</span></p>
-              <p className="hidden text-xs text-slate-500 sm:block">Smart Resume Builder · 5 Formats & Layout Controls</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -1721,24 +1971,9 @@ export default function App() {
           </div>
           <div className="no-print flex flex-wrap gap-2">
             <button
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 font-semibold text-indigo-700 hover:bg-indigo-100 shadow-sm transition"
-              title="Select a resume file from your computer (.pdf, .docx, .txt, .json)"
-            >
-              {uploading ? (
-                <>
-                  <RefreshCw size={17} className="animate-spin" /> Uploading…
-                </>
-              ) : (
-                <>
-                  <FileUp size={17}/> Select Resume File (.pdf)
-                </>
-              )}
-            </button>
-            <button
               onClick={() => setImportModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+              className="flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 font-semibold text-indigo-700 hover:bg-indigo-100 shadow-sm transition"
+              title="Import or upload resume (.pdf, .docx, .txt, .json, or paste text)"
             >
               <Upload size={17}/> Import
             </button>
@@ -1747,14 +1982,6 @@ export default function App() {
               className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
             >
               <Plus size={17}/> New Blank
-            </button>
-            <button
-              type="button"
-              onClick={copyPlainText}
-              className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 shadow-sm transition"
-              title="Copy ATS-friendly plain text to clipboard for job application portals"
-            >
-              <Copy size={16}/> Copy Text
             </button>
             <button
               type="button"
@@ -1808,10 +2035,10 @@ export default function App() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setImportModalOpen(true)}
               className="flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
             >
-              <FileUp size={14} className="text-indigo-600"/> Select File (.pdf, .docx)
+              <Upload size={14} className="text-indigo-600"/> Import
             </button>
             {saved.length > 0 && (
               <select
@@ -1968,6 +2195,13 @@ export default function App() {
                   </button>
                 ))}
               </div>
+
+              <a
+                href="#section-order-card"
+                className="mt-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/70 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition"
+              >
+                <SlidersHorizontal size={12}/> Reorder Sections (Move Up/Down)
+              </a>
             </div>
 
             {/* 3. Theme Color & Typography */}
@@ -2148,7 +2382,14 @@ export default function App() {
                     <Field label="City / location" value={data.location} onChange={v => update('location', v)} placeholder="Dharmapuri-635205, Tamil Nadu, India" />
                     <Field label="Portfolio / LinkedIn / GitHub" value={data.website} onChange={v => update('website', v)} placeholder="github.com/mcram2008-commits • portfolio42ramkumar.netlify.app" />
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-5 border-t border-slate-100 pt-4">
+                    <SectionTitle
+                      icon={FileText}
+                      title="Professional Summary"
+                      sectionKey="summary"
+                      isHidden={(data.hiddenSections || []).includes('summary')}
+                      onToggleHide={toggleHideSection}
+                    />
                     <Field
                       label="Professional summary"
                       area
@@ -2160,7 +2401,13 @@ export default function App() {
                 </div>
 
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={Code2} title="Technical Skills"/>
+                  <SectionTitle
+                    icon={Code2}
+                    title="Technical Skills"
+                    sectionKey="skills"
+                    isHidden={(data.hiddenSections || []).includes('skills')}
+                    onToggleHide={toggleHideSection}
+                  />
                   <Field
                     label="Skills (separate with commas)"
                     area
@@ -2171,7 +2418,13 @@ export default function App() {
                 </div>
 
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={BriefcaseBusiness} title="Experience"/>
+                  <SectionTitle
+                    icon={BriefcaseBusiness}
+                    title="Experience"
+                    sectionKey="experience"
+                    isHidden={(data.hiddenSections || []).includes('experience')}
+                    onToggleHide={toggleHideSection}
+                  />
                   {data.experience.map((x, i) => (
                     <div key={i} className="mb-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -2202,7 +2455,13 @@ export default function App() {
                 </div>
 
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={Code2} title="Projects"/>
+                  <SectionTitle
+                    icon={Target}
+                    title="Projects"
+                    sectionKey="projects"
+                    isHidden={(data.hiddenSections || []).includes('projects')}
+                    onToggleHide={toggleHideSection}
+                  />
                   {data.projects.map((x, i) => (
                     <div key={i} className="mb-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -2232,7 +2491,13 @@ export default function App() {
                 </div>
 
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={GraduationCap} title="Education"/>
+                  <SectionTitle
+                    icon={GraduationCap}
+                    title="Education"
+                    sectionKey="education"
+                    isHidden={(data.hiddenSections || []).includes('education')}
+                    onToggleHide={toggleHideSection}
+                  />
                   {data.education.map((x, i) => (
                     <div key={i} className="mb-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -2255,7 +2520,13 @@ export default function App() {
 
                 {/* FLOWCV MODULAR SECTION: CERTIFICATIONS & LICENSES */}
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={Award} title="Certifications & Licenses"/>
+                  <SectionTitle
+                    icon={Award}
+                    title="Certifications & Licenses"
+                    sectionKey="certifications"
+                    isHidden={(data.hiddenSections || []).includes('certifications')}
+                    onToggleHide={toggleHideSection}
+                  />
                   {(data.certifications || []).map((x, i) => (
                     <div key={i} className="mb-3 rounded-xl border border-slate-100 bg-slate-50 p-3.5">
                       <div className="grid gap-3 sm:grid-cols-3">
@@ -2282,7 +2553,13 @@ export default function App() {
 
                 {/* FLOWCV MODULAR SECTION: LANGUAGES & PROFICIENCY */}
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={Languages} title="Languages & Proficiency"/>
+                  <SectionTitle
+                    icon={Languages}
+                    title="Languages & Proficiency"
+                    sectionKey="languages"
+                    isHidden={(data.hiddenSections || []).includes('languages')}
+                    onToggleHide={toggleHideSection}
+                  />
                   {(data.languages || []).map((x, i) => (
                     <div key={i} className="mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3.5">
                       <div className="flex-1 min-w-[150px]">
@@ -2320,11 +2597,13 @@ export default function App() {
 
                 {/* EXTRA CUSTOM SECTIONS (+ ADD HEADING) */}
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b pb-3">
-                    <div className="flex items-center gap-2">
-                      <PlusCircle size={18} className="text-indigo-600"/>
-                      <h3 className="font-semibold text-slate-900">Custom Sections & Extra Headings</h3>
-                    </div>
+                  <SectionTitle
+                    icon={Layers}
+                    title="Custom Sections & Extra Headings"
+                    sectionKey="customSections"
+                    isHidden={(data.hiddenSections || []).includes('customSections')}
+                    onToggleHide={toggleHideSection}
+                  >
                     <button
                       type="button"
                       onClick={() => addRow('customSections', { heading: '', content: '' })}
@@ -2332,7 +2611,7 @@ export default function App() {
                     >
                       <Plus size={15}/> + Add Custom Heading
                     </button>
-                  </div>
+                  </SectionTitle>
 
                   <p className="text-xs text-slate-500 mb-3">
                     Add any extra headings you need (e.g. Awards, Volunteering, Publications, Portfolio Links, Key Highlights, Hobbies).
@@ -2391,7 +2670,13 @@ export default function App() {
                 </div>
 
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={FileText} title="Additional Notes / Custom Details"/>
+                  <SectionTitle
+                    icon={FileText}
+                    title="Additional Notes / Custom Details"
+                    sectionKey="additionalInfo"
+                    isHidden={(data.hiddenSections || []).includes('additionalInfo')}
+                    onToggleHide={toggleHideSection}
+                  />
                   <Field
                     label="Languages, Certifications, Conferences"
                     area
@@ -2522,15 +2807,15 @@ export default function App() {
                   ) : null}
                 </div>
 
-                {/* RESUME ALIGNMENT & FINAL TOUCH (AFTER ADDING CONTENT) */}
-                <div className="rounded-2xl border-2 border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/40 p-5 shadow-sm">
+                {/* RESUME ALIGNMENT & SECTION ORDERING CONTROLS */}
+                <div id="section-order-card" className="rounded-2xl border-2 border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/40 p-5 shadow-sm">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-100 pb-3">
                     <div>
                       <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                        <AlignLeft size={17} className="text-indigo-600"/> Resume Alignment & Final Layout
+                        <AlignLeft size={17} className="text-indigo-600"/> Resume Alignment & Section Ordering
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Content add panna aprum, ungalukku vendiya text alignment & layout-ah inga set pannikkalam.
+                        Client requirement-ku yatha maari text alignment & section positions-ah (e.g. Skills above Education) inga customize pannikkalam.
                       </p>
                     </div>
                     <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800">
@@ -2614,6 +2899,125 @@ export default function App() {
                           <Save size={15}/> {busy ? 'Saving...' : 'Save Resume'}
                         </button>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* DYNAMIC SECTION ORDERING & POSITION CONTROLS */}
+                  <div className="mt-5 border-t border-indigo-100 pt-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                          <SlidersHorizontal size={15} className="text-indigo-600"/> Reorder Resume Sections (Move Up / Down)
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Headings-ah ungalukku vendiya order-la move pannikkalam (e.g. Move Skills above Education). Click <strong>▲ Move Up</strong> or <strong>▼ Move Down</strong>, or drag to reorder. The resume on the right updates instantly!
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          update('sectionOrder', [...DEFAULT_SECTION_ORDER]);
+                          setNotice('Reset resume sections to default order');
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs shrink-0 self-start sm:self-auto"
+                        title="Reset to default order: Summary -> Skills -> Experience -> Projects -> Education..."
+                      >
+                        <RotateCcw size={13}/> Reset Order
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {getSectionOrder(data).map((key, idx, arr) => {
+                        const meta = SECTION_METADATA[key] || { label: key, icon: FileText, desc: '' };
+                        const IconComp = meta.icon || FileText;
+                        const isFirst = idx === 0;
+                        const isLast = idx === arr.length - 1;
+                        const hasData = checkSectionHasData(data, key);
+                        const isHidden = (data.hiddenSections || []).includes(key);
+
+                        return (
+                          <div
+                            key={key}
+                            draggable
+                            onDragStart={e => handleDragStart(e, idx)}
+                            onDragOver={handleDragOver}
+                            onDrop={e => handleDrop(e, idx)}
+                            className={`flex items-center justify-between gap-3 rounded-xl border p-2.5 sm:p-3 shadow-2xs transition ${
+                              isHidden
+                                ? 'border-dashed border-rose-200 bg-rose-50/30 opacity-75'
+                                : 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-xs'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-xs font-bold text-indigo-700 border border-indigo-100">
+                                #{idx + 1}
+                              </span>
+                              <span className="text-slate-400 cursor-grab hover:text-slate-600 hidden sm:inline" title="Drag to reorder">
+                                <GripVertical size={16} />
+                              </span>
+                              <span className={`rounded-md p-1.5 shrink-0 ${isHidden ? 'bg-slate-100 text-slate-400' : 'bg-indigo-50 text-indigo-600'}`}>
+                                <IconComp size={15}/>
+                              </span>
+                              <div className="min-w-0">
+                                <p className={`text-xs sm:text-sm font-bold truncate ${isHidden ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                                  {meta.label}
+                                </p>
+                                <p className="text-[10px] text-slate-400 truncate hidden md:block">{meta.desc}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => toggleHideSection(key)}
+                                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold border transition ${
+                                  isHidden
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 shadow-2xs'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200'
+                                }`}
+                                title={isHidden ? `Click to show "${meta.label}" on resume` : `Click to hide "${meta.label}" from resume`}
+                              >
+                                {isHidden ? (
+                                  <>
+                                    <EyeOff size={13} className="text-rose-600"/>
+                                    <span className="hidden sm:inline">Hidden</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye size={13} className="text-emerald-600"/>
+                                    <span className="hidden sm:inline">Visible</span>
+                                  </>
+                                )}
+                              </button>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full hidden sm:inline-block ${
+                                hasData ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-50 text-slate-400 border border-slate-200'
+                              }`}>
+                                {hasData ? 'Active' : 'Empty'}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={isFirst}
+                                  onClick={() => moveSection(idx, -1)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 disabled:opacity-30 disabled:pointer-events-none transition"
+                                  title={`Move ${meta.label} Up`}
+                                >
+                                  <ChevronUp size={16}/>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isLast}
+                                  onClick={() => moveSection(idx, 1)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 disabled:opacity-30 disabled:pointer-events-none transition"
+                                  title={`Move ${meta.label} Down`}
+                                >
+                                  <ChevronDown size={16}/>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -2997,29 +3401,41 @@ export default function App() {
               onFixSection={() => setTab('edit')}
             />
 
-            <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-white to-white p-3.5 shadow-xs">
               <div>
-                <p className="text-sm font-semibold text-slate-800">Live Resume Preview</p>
-                <p className="text-xs text-slate-500">
-                  Format: {TEMPLATES.find(t => t.id === (data.template || 'modern'))?.name} · Align: {data.align || 'left'} · Size: {data.fontSize || 'normal'}
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-slate-900">Live Resume Preview</p>
+                  <span className="flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2 py-0.5 border border-emerald-200">
+                    <Eye size={12}/> Live View
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Format: <strong className="text-indigo-700">{TEMPLATES.find(t => t.id === (data.template || 'modern'))?.name}</strong> · Align: {data.align || 'left'} · Size: {data.fontSize || 'normal'}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowPageGuide(prev => !prev)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold border transition ${
                     showPageGuide
-                      ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-400'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-indigo-100 text-indigo-800 border-indigo-300 ring-1 ring-indigo-300'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                   }`}
                   title="Toggle visual indicator for standard A4 Page 1 cutoff"
                 >
-                  <FileText size={13}/> A4 Cutoff Guide: {showPageGuide ? 'ON' : 'OFF'}
+                  <FileText size={13}/> A4 Guide: {showPageGuide ? 'ON' : 'OFF'}
                 </button>
-                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  <Eye size={14}/> Live View
-                </span>
+
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-md hover:bg-indigo-700 hover:shadow-lg transition active:scale-95"
+                  title="Download or Print your resume as PDF"
+                >
+                  <Download size={16}/> Download / Print PDF
+                </button>
               </div>
             </div>
 
@@ -3045,17 +3461,26 @@ export default function App() {
               <div>
                 💡 <strong>PDF Export Tip:</strong> Click <strong>Download / Print PDF</strong>, then select <strong>Save as PDF</strong> in your browser print dialog. Make sure 'Background graphics' is checked.
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  update('spacing', 'compact');
-                  update('fontSize', 'compact');
-                  setNotice('✨ Fit to 1 Page: spacing and font sizes compressed to fit content onto 1 page!');
-                }}
-                className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition shadow-2xs"
-              >
-                ✨ Fit to 1 Page
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="shrink-0 flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 transition shadow-2xs"
+                >
+                  <Download size={14}/> Download / Print PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    update('spacing', 'compact');
+                    update('fontSize', 'compact');
+                    setNotice('✨ Fit to 1 Page: spacing and font sizes compressed to fit content onto 1 page!');
+                  }}
+                  className="shrink-0 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100 transition shadow-2xs"
+                >
+                  ✨ Fit to 1 Page
+                </button>
+              </div>
             </div>
           </section>
         </div>
