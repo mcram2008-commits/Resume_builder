@@ -5,7 +5,7 @@ import {
   Target, CheckCircle, AlertCircle, Upload, Check, Copy, Briefcase,
   RefreshCw, X, FileUp, Palette, AlignLeft, AlignCenter, AlignRight,
   Type, SlidersHorizontal, Award, Languages, Layers, Camera, Image,
-  FileDown, CheckSquare, ShieldCheck, ChevronDown, ChevronUp
+  FileDown, CheckSquare, ShieldCheck, ChevronDown, ChevronUp, PlusCircle
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
@@ -24,6 +24,7 @@ const emptyResume = () => ({
   experience: [{ company: '', role: '', period: '', description: '' }],
   certifications: [{ name: '', issuer: '', year: '' }],
   languages: [{ name: '', level: 'Fluent' }],
+  customSections: [],     // [{ heading: '', content: '' }]
   additionalInfo: 'Certifications: Full Stack Web Development  •  Languages: English',
   photoUrl: '',
   photoShape: 'circle',   // 'circle' | 'rounded' | 'square' | 'none'
@@ -83,6 +84,12 @@ const ramkumarSample = () => ({
   languages: [
     { name: 'Tamil', level: 'Native / Bilingual' },
     { name: 'English', level: 'Professional Working' }
+  ],
+  customSections: [
+    {
+      heading: 'Key Achievements & Honors',
+      content: '• Won 1st place in State-level Web Development Hackathon 2024\n• Published research paper in IEEE International Conference CCICS 2025'
+    }
   ],
   additionalInfo: 'Certifications: Learnathon-2024, CCICS IEEE  •  Languages: Tamil, English',
   photoUrl: '',
@@ -379,6 +386,14 @@ function generateAtsPlainText(data) {
     });
   }
 
+  const validCustom = (data.customSections || []).filter(s => s.heading || s.content);
+  if (validCustom.length) {
+    validCustom.forEach(s => {
+      lines.push(`\n${(s.heading || 'ADDITIONAL SECTION').toUpperCase()}`);
+      if (s.content) lines.push(s.content);
+    });
+  }
+
   if (data.additionalInfo) {
     lines.push('\nADDITIONAL INFORMATION');
     lines.push(data.additionalInfo);
@@ -495,7 +510,7 @@ function AtsHealthWidget({ data, onFixSection }) {
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              FlowCV-style real-time analysis for contact, summary, skills, and experience
+              Real-time analysis for contact, summary, skills, and experience
             </p>
           </div>
         </div>
@@ -704,6 +719,17 @@ function ResumePreview({ data }) {
           </section>
         )}
 
+        {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
+          <section key={i}>
+            <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>
+              {sec.heading || 'Custom Section'}
+            </h2>
+            <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">
+              {sec.content}
+            </p>
+          </section>
+        ))}
+
         {data.additionalInfo && (
           <section className="border-t pt-3">
             <h2 className="mb-1 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: accent }}>Additional Information</h2>
@@ -820,6 +846,17 @@ function ResumePreview({ data }) {
             </p>
           </section>
         )}
+
+        {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
+          <section key={i}>
+            <h2 className="border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-widest text-slate-900">
+              {sec.heading || 'Custom Section'}
+            </h2>
+            <p className="mt-2 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-800">
+              {sec.content}
+            </p>
+          </section>
+        ))}
 
         {data.additionalInfo && (
           <section>
@@ -979,6 +1016,17 @@ function ResumePreview({ data }) {
               </div>
             </section>
           )}
+
+          {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
+            <section key={i}>
+              <h2 className="text-xs font-bold uppercase tracking-widest pb-1 border-b" style={{ color: accent, borderColor: `${accent}40` }}>
+                {sec.heading || 'Custom Section'}
+              </h2>
+              <p className="mt-2 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                {sec.content}
+              </p>
+            </section>
+          ))}
         </main>
       </article>
     );
@@ -1101,6 +1149,17 @@ function ResumePreview({ data }) {
             </p>
           </section>
         )}
+
+        {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
+          <section key={i}>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+              {sec.heading || 'Custom Section'}
+            </h2>
+            <p className="mt-1.5 whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700">
+              {sec.content}
+            </p>
+          </section>
+        ))}
 
         {data.additionalInfo && (
           <section className="text-xs text-slate-500 pt-2 border-t">
@@ -1257,6 +1316,20 @@ function ResumePreview({ data }) {
             </div>
           </section>
         )}
+
+        {data.customSections?.filter(x => x.heading || x.content).map((sec, i) => (
+          <section key={i}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="h-3 w-1 rounded" style={{ backgroundColor: accent }} />
+              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-800">
+                {sec.heading || 'Custom Section'}
+              </h2>
+            </div>
+            <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-slate-700 pl-3">
+              {sec.content}
+            </p>
+          </section>
+        ))}
 
         {data.additionalInfo && (
           <section className="pl-3 pt-2 text-xs text-slate-600">
@@ -1468,7 +1541,7 @@ export default function App() {
       ...data,
       meta: {
         exportedAt: new Date().toISOString(),
-        tool: 'ResumeCraft AI (FlowCV Compatible)'
+        tool: 'ResumeCraft AI'
       }
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -1775,14 +1848,14 @@ export default function App() {
         </div>
 
         {/* -------------------------------------------------------------
-            FLOWCV-INSPIRED RESUME STYLING & CONTROLS BAR
+            RESUME STYLING & CONTROLS BAR
             ------------------------------------------------------------- */}
         <div className="no-print mb-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={18} className="text-indigo-600"/>
-              <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
-                Design & Layout Controls <span className="rounded bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">FlowCV Mode</span>
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base">
+                Design & Layout Controls
               </h3>
             </div>
             
@@ -2254,8 +2327,80 @@ export default function App() {
                   </button>
                 </div>
 
+                {/* EXTRA CUSTOM SECTIONS (+ ADD HEADING) */}
                 <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                  <SectionTitle icon={FileText} title="Additional Notes / Custom Section"/>
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                    <div className="flex items-center gap-2">
+                      <PlusCircle size={18} className="text-indigo-600"/>
+                      <h3 className="font-semibold text-slate-900">Custom Sections & Extra Headings</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => addRow('customSections', { heading: '', content: '' })}
+                      className="flex items-center gap-1.5 rounded-xl bg-indigo-50 border border-indigo-200 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
+                    >
+                      <Plus size={15}/> + Add Custom Heading
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-500 mb-3">
+                    Add any extra headings you need (e.g. Awards, Volunteering, Publications, Portfolio Links, Key Highlights, Hobbies).
+                  </p>
+
+                  {(data.customSections || []).map((sec, i) => (
+                    <div key={i} className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                        <div className="flex-1">
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                            Section Heading Title
+                          </label>
+                          <input
+                            type="text"
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800"
+                            value={sec.heading || ''}
+                            onChange={e => updateRow('customSections', i, 'heading', e.target.value)}
+                            placeholder="e.g. Awards & Achievements / Publications / Volunteering"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeRow('customSections', i)}
+                          className="sm:mt-4 rounded-lg p-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-1 self-start sm:self-auto"
+                        >
+                          <Trash2 size={14}/> Remove
+                        </button>
+                      </div>
+
+                      <div className="mt-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                          Section Content & Highlights
+                        </label>
+                        <textarea
+                          className="min-h-[85px] rounded-lg border border-slate-300 bg-white p-3 text-xs sm:text-sm leading-relaxed"
+                          value={sec.content || ''}
+                          onChange={e => updateRow('customSections', i, 'content', e.target.value)}
+                          placeholder="Type bullet points or paragraphs for this custom section..."
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {(!data.customSections || data.customSections.length === 0) && (
+                    <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center">
+                      <p className="text-xs text-slate-500">Need an extra heading? Click the button below to add custom sections.</p>
+                      <button
+                        type="button"
+                        onClick={() => addRow('customSections', { heading: '', content: '' })}
+                        className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition"
+                      >
+                        <Plus size={15}/> + Add Custom Heading
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border bg-white p-5 shadow-sm">
+                  <SectionTitle icon={FileText} title="Additional Notes / Custom Details"/>
                   <Field
                     label="Languages, Certifications, Conferences"
                     area
@@ -2384,6 +2529,102 @@ export default function App() {
                       </button>
                     </div>
                   ) : null}
+                </div>
+
+                {/* RESUME ALIGNMENT & FINAL TOUCH (AFTER ADDING CONTENT) */}
+                <div className="rounded-2xl border-2 border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/40 p-5 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-100 pb-3">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <AlignLeft size={17} className="text-indigo-600"/> Resume Alignment & Final Layout
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Content add panna aprum, ungalukku vendiya text alignment & layout-ah inga set pannikkalam.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-800">
+                      Active: {data.align ? data.align.toUpperCase() : 'LEFT'}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                        Select Alignment:
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            update('align', 'left');
+                            setNotice('Updated alignment to Left');
+                          }}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition ${
+                            (data.align || 'left') === 'left'
+                              ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <AlignLeft size={16}/> Left Align
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            update('align', 'center');
+                            setNotice('Updated alignment to Center');
+                          }}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition ${
+                            data.align === 'center'
+                              ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <AlignCenter size={16}/> Center Align
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            update('align', 'right');
+                            setNotice('Updated alignment to Right');
+                          }}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-bold transition ${
+                            data.align === 'right'
+                              ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <AlignRight size={16}/> Right Align
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                        Quick Layout & Save:
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            update('spacing', 'compact');
+                            update('fontSize', 'compact');
+                            setNotice('✨ Fit to 1 Page: spacing and font sizes compressed!');
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-2.5 text-xs font-bold text-amber-900 shadow-2xs hover:from-amber-100 hover:to-orange-100"
+                        >
+                          <Sparkles size={14} className="text-amber-600" /> ✨ Fit to 1 Page
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={saveResume}
+                          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 p-2.5 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm disabled:opacity-60"
+                        >
+                          <Save size={15}/> {busy ? 'Saving...' : 'Save Resume'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
