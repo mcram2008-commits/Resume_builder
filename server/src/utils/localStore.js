@@ -5,7 +5,27 @@ const crypto = require('crypto');
 const dataDir = path.join(__dirname, '../../data');
 const filePath = path.join(dataDir, 'local_storage.json');
 
+// On Vercel (read-only filesystem), file writes will fail.
+// This flag disables writes gracefully so the app doesn't crash.
+// Users on Vercel MUST set MONGODB_URI — local storage is only for local dev.
+let fsWritable = null;
+
+function checkFsWritable() {
+  if (fsWritable !== null) return fsWritable;
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(filePath + '.tmp', '', 'utf-8');
+    fs.unlinkSync(filePath + '.tmp');
+    fsWritable = true;
+  } catch {
+    fsWritable = false;
+    console.warn('[localStore] Filesystem is read-only (Vercel environment). Local storage fallback is disabled. Please set MONGODB_URI in Vercel Environment Variables.');
+  }
+  return fsWritable;
+}
+
 function ensureDataFile() {
+  if (!checkFsWritable()) return;
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
@@ -15,6 +35,7 @@ function ensureDataFile() {
 }
 
 function readData() {
+  if (!checkFsWritable()) return { users: [], resumes: [] };
   ensureDataFile();
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
@@ -25,6 +46,10 @@ function readData() {
 }
 
 function writeData(data) {
+  if (!checkFsWritable()) {
+    console.warn('[localStore] Skipping write — filesystem is read-only.');
+    return;
+  }
   ensureDataFile();
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
@@ -34,6 +59,10 @@ function genId() {
 }
 
 module.exports = {
+  // Returns false on Vercel (read-only fs) or other environments without writable storage
+  isAvailable() {
+    return checkFsWritable() === true;
+  },
   // Users
   findUserByEmail(email) {
     const db = readData();

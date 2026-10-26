@@ -1,7 +1,15 @@
 const router = require('express').Router();
 const multer = require('multer');
-const pdfModule = require('pdf-parse');
 const mammoth = require('mammoth');
+
+// Lazy-load pdf-parse to avoid Vercel serverless filesystem access issues on require()
+let pdfModule = null;
+function getPdfParser() {
+  if (!pdfModule) {
+    try { pdfModule = require('pdf-parse'); } catch (e) { pdfModule = null; }
+  }
+  return pdfModule;
+}
 const mongoose = require('mongoose');
 const Resume = require('../models/Resume');
 const auth = require('../middleware/auth');
@@ -15,18 +23,20 @@ const upload = multer({
 });
 
 async function parsePdfBuffer(buffer) {
+  const parser = getPdfParser();
+  if (!parser) throw new Error('PDF parsing is not available in this environment.');
   try {
-    if (typeof pdfModule === 'function') {
-      const parsed = await pdfModule(buffer);
+    if (typeof parser === 'function') {
+      const parsed = await parser(buffer);
       return parsed.text || '';
     }
-    if (pdfModule && pdfModule.PDFParse) {
-      const parser = new pdfModule.PDFParse({ data: buffer });
+    if (parser && parser.PDFParse) {
+      const p = new parser.PDFParse({ data: buffer });
       try {
-        const parsed = await parser.getText();
+        const parsed = await p.getText();
         return parsed.text || '';
       } finally {
-        await parser.destroy().catch(() => {});
+        await p.destroy().catch(() => {});
       }
     }
   } catch (err) {

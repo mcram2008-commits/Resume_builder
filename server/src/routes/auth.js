@@ -6,6 +6,7 @@ const User = require('../models/User');
 const localStore = require('../utils/localStore');
 
 const isDbConnected = () => mongoose.connection.readyState === 1;
+const isLocalStorageAvailable = () => localStore.isAvailable();
 
 function issue(user) {
   return {
@@ -35,6 +36,10 @@ router.post('/register', async (req, res, next) => {
       }
     }
 
+    if (!isLocalStorageAvailable()) {
+      return res.status(503).json({ message: 'Database not configured. Please contact the site administrator to set up MONGODB_URI.' });
+    }
+
     if (localStore.findUserByEmail(email)) {
       return res.status(409).json({ message: 'An account with this email already exists.' });
     }
@@ -59,11 +64,18 @@ router.post('/login', async (req, res, next) => {
       }
     }
 
-    if (!user) {
+    if (!user && isLocalStorageAvailable()) {
       user = localStore.findUserByEmail(email);
     }
 
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user) {
+      if (!isDbConnected() && !isLocalStorageAvailable()) {
+        return res.status(503).json({ message: 'Database not configured. Please contact the site administrator.' });
+      }
+      return res.status(401).json({ message: 'Email or password is incorrect.' });
+    }
+
+    if (!(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ message: 'Email or password is incorrect.' });
     }
     res.json(issue(user));
