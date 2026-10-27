@@ -1,6 +1,4 @@
 // Vercel Serverless Function entry point for the Express API
-// Vercel imports this file and calls it as a handler — no app.listen() needed.
-
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', 'server', '.env') });
 
@@ -18,8 +16,6 @@ const aiRoutes = require('../server/src/routes/ai');
 
 const app = express();
 
-// On Vercel, CLIENT_ORIGIN should be set to the production URL in environment variables.
-// If not set, allow all origins (open CORS) so the app still works.
 const allowedOrigins = (process.env.CLIENT_ORIGIN || '')
   .split(',')
   .map(o => o.trim())
@@ -28,17 +24,47 @@ const allowedOrigins = (process.env.CLIENT_ORIGIN || '')
 app.use(helmet());
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // Allow Postman, curl, server-to-server
-    if (allowedOrigins.length === 0) return cb(null, true); // Allow all if not set
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.length === 0) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true
 }));
-app.use(express.json({ limit: '1mb' }));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 150 }));
+app.use(express.json({ limit: '10mb' }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300 }));
 
-app.get('/api/health', (_req, res) => {
+// Serverless MongoDB connection caching
+let isConnected = false;
+async function connectDb() {
+  if (isConnected || mongoose.connection.readyState === 1) {
+    isConnected = true;
+    return;
+  }
+  if (!process.env.MONGODB_URI) {
+    console.warn('[Database] MONGODB_URI is not set in environment variables.');
+    return;
+  }
+  try {
+    const db = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000
+    });
+    isConnected = db.connections[0].readyState === 1;
+    console.log('[Database] MongoDB Atlas Connected!');
+  } catch (err) {
+    console.warn('[Database] MongoDB connection error:', err.message);
+  }
+}
+
+// Connect DB middleware for incoming requests
+app.use(async (_req, _res, next) => {
+  await connectDb();
+  next();
+});
+
+// Health check (support both /api/health and /health)
+app.get(['/health', '/api/health'], (_req, res) => {
   const dbState = ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown';
   res.json({
     status: 'ok',
@@ -48,9 +74,15 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+// Mount routes on both /api/* and /* to handle any rewrite variant cleanly
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/resumes', resumeRoutes);
+app.use('/resumes', resumeRoutes);
+
 app.use('/api/ai', aiRoutes);
+app.use('/ai', aiRoutes);
 
 // Global Error Handler
 app.use((err, _req, res, _next) => {
@@ -62,24 +94,5 @@ app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ message });
 });
 
-// Connect to MongoDB (non-blocking)
-function connectMongo() {
-  if (!process.env.MONGODB_URI) {
-    console.warn('[Database] MONGODB_URI is NOT set. Please add it in Vercel Environment Variables. Auth and resume storage will not work.');
-    return;
-  }
-  mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 5000
-  })
-    .then(() => console.log('MongoDB Atlas Connected!'))
-    .catch(err => {
-      console.warn('[Database] MongoDB Atlas warning:', err.message);
-      setTimeout(connectMongo, 20000);
-    });
-}
-
-connectMongo();
-
-// Export for Vercel serverless — do NOT call app.listen()
+// Export handler for Vercel serverless
 module.exports = app;
