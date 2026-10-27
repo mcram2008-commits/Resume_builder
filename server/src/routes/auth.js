@@ -5,6 +5,19 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const localStore = require('../utils/localStore');
 
+async function ensureDb() {
+  if (mongoose.connection.readyState !== 1 && process.env.MONGODB_URI) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000
+      });
+    } catch (err) {
+      console.warn('[Database] Mongoose connect error:', err.message);
+    }
+  }
+}
+
 const isDbConnected = () => mongoose.connection.readyState === 1;
 const isLocalStorageAvailable = () => localStore.isAvailable();
 
@@ -24,6 +37,8 @@ router.post('/register', async (req, res, next) => {
       return res.status(400).json({ message: 'Enter a name, valid email, and password of at least 8 characters.' });
     }
 
+    await ensureDb();
+
     if (isDbConnected()) {
       try {
         if (await User.findOne({ email })) {
@@ -37,7 +52,7 @@ router.post('/register', async (req, res, next) => {
     }
 
     if (!isLocalStorageAvailable()) {
-      return res.status(503).json({ message: 'Database not configured. Please contact the site administrator to set up MONGODB_URI.' });
+      return res.status(503).json({ message: 'Database not configured or unable to connect. Please check MONGODB_URI.' });
     }
 
     if (localStore.findUserByEmail(email)) {
@@ -56,6 +71,8 @@ router.post('/login', async (req, res, next) => {
     const password = String(req.body.password || '');
     let user = null;
 
+    await ensureDb();
+
     if (isDbConnected()) {
       try {
         user = await User.findOne({ email });
@@ -70,7 +87,7 @@ router.post('/login', async (req, res, next) => {
 
     if (!user) {
       if (!isDbConnected() && !isLocalStorageAvailable()) {
-        return res.status(503).json({ message: 'Database not configured. Please contact the site administrator.' });
+        return res.status(503).json({ message: 'Database not configured or unable to connect. Please check MONGODB_URI.' });
       }
       return res.status(401).json({ message: 'Email or password is incorrect.' });
     }

@@ -15,7 +15,25 @@ const Resume = require('../models/Resume');
 const auth = require('../middleware/auth');
 const localStore = require('../utils/localStore');
 
+async function ensureDb() {
+  if (mongoose.connection.readyState !== 1 && process.env.MONGODB_URI) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000
+      });
+    } catch (err) {
+      console.warn('[Database] Mongoose connect error:', err.message);
+    }
+  }
+}
+
 const isDbConnected = () => mongoose.connection.readyState === 1;
+
+router.use(async (_req, _res, next) => {
+  await ensureDb();
+  next();
+});
 
 const upload = multer({
   storage: multer.memoryStorage(),
