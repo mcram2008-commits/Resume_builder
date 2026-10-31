@@ -39,3 +39,5 @@ Click **Download / Print PDF** in the preview. In the print dialog choose **Save
 - JWT secret must be changed from the example.
 - Resume endpoints are scoped to the authenticated user.
 - Add HTTPS, stricter production CORS, email verification, password reset and request monitoring before public production deployment.
+
+- deployment link:https://resumebuilder-ten-wine.vercel.app
